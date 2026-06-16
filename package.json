@@ -1,0 +1,31 @@
+{
+  "name": "proposal-rescue",
+  "version": "1.0.0",
+  "description": "Never lose a client because you forgot to follow up.",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build:pages -- --watch & npm run build:content -- --watch",
+    "build": "npm run build:pages && npm run build:content",
+    "build:pages": "vite build",
+    "build:content": "vite build --config vite.content.config.ts",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "openai": "^4.52.7"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vite-plugin-zip-pack": "^1.0.7"
+  }
+}

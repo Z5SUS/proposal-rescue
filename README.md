@@ -1,190 +1,283 @@
-# Proposal Rescue
+# 🚀 Proposal Rescue
 
-> Never lose a client because you forgot to follow up.
+> **Never lose a client because you forgot to follow up.**
 
-A focused Gmail productivity Chrome Extension for freelancers, consultants, and small agencies. It tracks proposal email threads and reminds you to follow up when a prospect goes quiet.
-
----
-
-## What it does
-
-1. **Detects** Gmail thread views automatically via DOM observation
-2. **Lets you opt-in** — you explicitly click "Track" on threads you care about
-3. **Reminds you** when you've sent the last email and no reply has arrived
-4. **Generates** a follow-up draft using OpenAI (you always review before sending)
-5. **Tracks outcomes** — mark threads as Won, Lost, or Stop Tracking
-
-This is **not** a CRM. It's a lightweight reminder tool that lives inside Gmail.
+Proposal Rescue is a Chrome Extension that sits inside Gmail and automatically tracks proposal conversations, reminds you to follow up, and generates AI-written follow-up email drafts — so no deal ever goes cold because of a missed message.
 
 ---
 
-## Tech Stack
+## 📦 Repository Structure
 
-| Layer | Technology |
+```
+Desktop/
+├── extension/                  ← Chrome Extension (this repo)
+│   ├── src/
+│   │   ├── background/         ← Service worker (badge updates, alarms)
+│   │   ├── constants/          ← API URLs, storage keys, Gmail selectors
+│   │   ├── content/            ← Gmail content script + onboarding UI
+│   │   ├── dashboard/          ← Dashboard React app (thread list, panels)
+│   │   ├── hooks/              ← useThreads, useSettings React hooks
+│   │   ├── options/            ← Settings page (license key, interval, tone)
+│   │   ├── popup/              ← Popup (quick stats + open dashboard)
+│   │   ├── styles/             ← Global CSS / Tailwind
+│   │   ├── types/              ← Shared TypeScript types
+│   │   └── utils/
+│   │       ├── api.ts          ← Proxy API calls (DeepSeek / Vercel backend)
+│   │       ├── badge.ts        ← Chrome action badge (overdue count)
+│   │       ├── dates.ts        ← Date formatting helpers
+│   │       ├── entitlements.ts ← Free vs Pro feature gating
+│   │       ├── gmail.ts        ← Gmail DOM helpers
+│   │       ├── gmailObserver.ts← MutationObserver for Gmail SPA navigation
+│   │       └── storage.ts      ← chrome.storage.sync read/write helpers
+│   ├── public/                 ← Static assets (icons, manifest.json)
+│   ├── dist/                   ← Build output (git-ignored)
+│   ├── vite.config.ts          ← Vite build config (pages + background)
+│   ├── vite.content.config.ts  ← Vite IIFE build for content script
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   └── package.json
+│
+└── proposal-rescue-api/        ← Vercel Serverless Backend (separate repo)
+    ├── api/
+    │   ├── generate-followup.ts ← POST /api/generate-followup
+    │   └── validate-license.ts  ← POST /api/validate-license
+    ├── .env.example
+    ├── vercel.json
+    └── package.json
+```
+
+---
+
+## ✅ Features
+
+### Core Extension
+| Feature | Description |
 |---|---|
-| Extension Platform | Chrome Manifest V3 |
-| UI Framework | React 18 + TypeScript |
-| Build Tool | Vite 5 |
-| Styling | Tailwind CSS (prefix: `pr-`) |
-| Storage | `chrome.storage.sync` |
-| AI | OpenAI API (`gpt-4o-mini`) |
+| Gmail MutationObserver | Detects thread navigation inside Gmail's SPA |
+| Thread Tracking | One-click tracking of proposal email threads |
+| Dashboard | Full React dashboard showing active, snoozed, and archived threads |
+| Snooze | Snooze a thread for 1 day, 3 days, or 1 week |
+| Won / Lost / Stop Tracking | Mark outcomes and archive threads |
+| AI Follow-up Generation | Generate a draft follow-up and insert it into Gmail compose |
+| Settings Page | Configure follow-up interval, AI tone, and license key |
+| chrome.storage.sync | All data persists across devices via Chrome sync |
+
+### Feature Gating (Free vs Pro)
+| Feature | Free | Pro |
+|---|---|---|
+| Active tracked threads | Max **5** | **Unlimited** |
+| AI follow-up drafts | **1 lifetime** trial | **Unlimited** |
+| Tone selection | ✅ | ✅ |
+| Onboarding guide | ✅ | ✅ |
+| Dashboard + Snooze + Won/Lost | ✅ | ✅ |
+
+### UX Improvements
+| Feature | Description |
+|---|---|
+| **Onboarding Guide** | First-run floating panel shown once in Gmail — dismissed with "Got It" |
+| **Priority Dashboard Sort** | Overdue → oldest next action date → most recent email activity |
+| **Second Follow-Up Labels** | "First Follow-Up" / "Second Follow-Up" label shown above AI drafts |
+| **Action Badge** | Red Chrome badge shows exact count of overdue threads |
+| **Upgrade Prompts** | Contextual upgrade cards shown when free limits are hit |
+| **Empty State** | Clean empty dashboard with "Show Me How" button |
 
 ---
 
-## Project Structure
+## 🏗️ Architecture
 
 ```
-extension/
-├── public/
-│   ├── manifest.json          # Extension manifest
-│   └── icons/                 # Extension icons
-├── src/
-│   ├── background/
-│   │   └── index.ts           # Service worker (alarms, message routing)
-│   ├── content/
-│   │   ├── index.ts           # Gmail content script entry
-│   │   └── content.css        # Scoped styles for injected UI
-│   ├── dashboard/
-│   │   └── index.tsx          # Dashboard React app entry
-│   ├── popup/
-│   │   └── index.tsx          # Popup React app entry
-│   ├── options/
-│   │   └── index.tsx          # Settings page React app entry
-│   ├── components/            # Shared React components
-│   ├── hooks/                 # Shared React hooks
-│   ├── types/
-│   │   └── index.ts           # TypeScript type definitions
-│   ├── constants/
-│   │   └── index.ts           # App-wide constants + Gmail selectors
-│   ├── utils/
-│   │   ├── storage.ts         # chrome.storage.sync wrappers
-│   │   ├── dates.ts           # Date helpers
-│   │   ├── gmail.ts           # Gmail DOM parsing utilities
-│   │   └── gmailObserver.ts   # MutationObserver-based navigation detector
-│   └── styles/
-│       └── global.css         # Tailwind base + global reset
-├── popup.html
-├── dashboard.html
-├── options.html
-├── vite.config.ts
-├── tailwind.config.js
-├── tsconfig.json
-└── package.json
+┌─────────────────────────────────┐
+│       Chrome Extension          │
+│  (Gmail content script +        │
+│   React dashboard/options/popup)│
+└──────────────┬──────────────────┘
+               │  HTTPS
+               ▼
+┌─────────────────────────────────┐
+│    Vercel Serverless Backend    │
+│  proposal-rescue.vercel.app/api │
+│                                 │
+│  POST /api/generate-followup    │
+│  POST /api/validate-license     │
+└──────────────┬──────────────────┘
+               │
+               ▼
+┌─────────────────────────────────┐
+│        DeepSeek API             │
+│   api.deepseek.com              │
+│   model: deepseek-chat          │
+└─────────────────────────────────┘
 ```
 
 ---
 
-## Getting Started
+## 🔑 License Key System
 
-### Prerequisites
+| Plan | Format | Capabilities |
+|---|---|---|
+| **Free** | No key needed | 5 threads, 1 AI draft |
+| **Pro** | `PR-XXXX-XXXX-XXXX` | Unlimited threads + AI drafts |
+| **Owner** | `Z5-OWNER` | Internal testing — same as Pro |
 
-- Node.js 18+
-- npm 9+
-- A Chromium-based browser (Chrome, Edge, Brave)
+### Validation Flow
+1. User enters license key in **Settings → License Key** → clicks **Validate**
+2. Extension calls `POST /api/validate-license`
+3. Backend returns `{ valid: true, plan: "pro" }`
+4. Extension stores result in `chrome.storage.sync`
+5. All feature gates now allow Pro access
 
-### Installation
+---
+
+## 🛠️ Local Development
+
+### 1. Clone & Install
 
 ```bash
-# Install dependencies
+git clone https://github.com/Z5SUS/proposal-rescue.git
+cd proposal-rescue
 npm install
+```
 
-# Build in watch mode (for development)
-npm run dev
+### 2. Build
 
-# Production build
+```bash
 npm run build
 ```
 
-### Loading the extension in Chrome
+### 3. Load in Chrome
 
-1. Run `npm run build` to produce the `dist/` folder
-2. Open Chrome and navigate to `chrome://extensions`
-3. Enable **Developer mode** (toggle in the top right)
-4. Click **Load unpacked**
-5. Select the `dist/` folder
+1. Open `chrome://extensions`
+2. Enable **Developer Mode** (top right toggle)
+3. Click **Load Unpacked**
+4. Select the `dist/` folder
 
-### Setting up the AI Provider (DeepSeek / OpenAI)
+### 4. Watch Mode (auto-rebuild on save)
 
-To enable AI-generated follow-up completions, you must configure an API key in [constants/index.ts](file:///c:/Users/bmxz5/Desktop/extension/src/constants/index.ts):
-1. **DeepSeek (Preferred/Generous Free Trial)**: Paste your API key in `DEEPSEEK_API_KEY`.
-2. **OpenAI**: Paste your API key in `OPENAI_API_KEY`.
-
-The extension automatically auto-detects which key is present:
-- If `DEEPSEEK_API_KEY` is configured, it will request drafts from DeepSeek's completions endpoint using the `deepseek-chat` model.
-- Otherwise, it falls back to OpenAI using `gpt-4o-mini`.
-
-Users do not need to register accounts or supply their own API keys in options — the drafting is zero-friction and works instantly.
+```bash
+npm run dev
+```
 
 ---
 
-## Development Phases
+## 📜 Available Scripts
 
-| Phase | Status | Description |
-|---|---|---|
-| 1 | ✅ Done | Project scaffolding, Vite, Tailwind, Gmail detection, MutationObserver |
-| 2 | ✅ Done | Track card UI, Chrome storage integration, data model |
-| 3 | ✅ Done | Dashboard, Needs Action logic, Snooze presets, custom date snooze, status actions |
-| 4 | ✅ Done | OpenAI follow-up generation, Insert into Gmail Compose |
-| 5 | ✅ Done | Options/Settings page, final polish |
-
----
-
-## Verifying All Features
-
-### 1. Options & Settings
-1. Click the extension icon → **Settings** (or click the gear icon in the Dashboard header).
-2. Enter your OpenAI API key.
-3. Configure your preferred default follow-up interval (3, 5, or 7 days) and AI tone (Professional, Friendly, Direct).
-4. Click **Save Settings**; confirm that settings persist on reload.
-
-### 2. Tracking a Conversation
-1. Open a thread in Gmail.
-2. An interactive card will appear at the bottom-right: "Track this conversation?".
-3. Click **Track**; the card will instantly update to show a `✓ Tracking` status and a **Stop Tracking** button.
-4. Click **Stop Tracking**; the card immediately transitions to a `⏹ Stopped` badge.
-5. In Gmail, you will not be prompted to track again once a thread is marked stopped, won, or lost.
-
-### 3. Managing Threads in the Dashboard
-- **Snooze**: Click **Snooze** on any card in the dashboard. Choose a preset or select `📅 Custom` to select a specific date (minimum tomorrow).
-- **History/Archive**: Click **Won**, **Lost**, or **Stop** on a thread card. The thread is immediately moved to the collapsible **History** section at the bottom, where you can click **Track Again** or delete it permanently (✕).
-- **Gmail Navigation**: Click **View Thread** on any card to update your active tab to that Gmail URL.
-
-### 4. AI Follow-Up Drafting & Gmail Injections
-1. Open a reply pane or compose window in Gmail.
-2. Click **✦ Generate Follow-Up** on the thread's card in the dashboard.
-3. An OpenAI draft is generated based on your settings and displayed in an editable textarea.
-4. Click **Insert Into Gmail Compose**. The draft text will be inserted at the cursor position inside Gmail, preserving your undo history!
+| Script | Description |
+|---|---|
+| `npm run dev` | Watch mode — rebuilds pages + content script on file change |
+| `npm run build` | Full production build → `dist/` |
+| `npm run build:pages` | Builds popup, dashboard, options, background service worker |
+| `npm run build:content` | Builds Gmail content script as IIFE (required by Chrome) |
+| `npm run type-check` | TypeScript type checking without emitting files |
 
 ---
 
-## Architecture Notes
+## 🔧 Key Source Files
 
-### Why Tailwind with `pr-` prefix?
-
-Gmail has its own extensive stylesheet. Without a prefix, Tailwind's utility classes would collide with Gmail's own styles. The `pr-` prefix namespaces all classes to `pr-p-4`, `pr-text-sm`, making collisions impossible.
-
-### Why `all: initial` on the injected card?
-
-Gmail's global CSS can cascade into injected DOM elements unexpectedly. Setting `all: initial` on the root card element resets every CSS property to its initial value, giving us a clean slate to style from.
-
-### Why not Gmail API / OAuth?
-
-The MVP scope doesn't require it. DOM parsing covers thread detection, subject extraction, and participant identification with zero OAuth complexity. This means users can install and start using the extension immediately with no login flow.
-
-### Why MutationObserver + hashchange?
-
-Gmail is a SPA. It never triggers `DOMContentLoaded` on navigation. The combination of:
-- `hashchange` events (fast, fires immediately)
-- `MutationObserver` debounced at 150ms (catches DOM-only navigations)
-
-gives reliable, efficient navigation detection without polling.
+| File | Purpose |
+|---|---|
+| `src/utils/entitlements.ts` | Central feature gating — `isProUser()`, `canTrackMore()`, `canUseAIDraft()` |
+| `src/utils/api.ts` | Routes AI generation to Vercel backend or direct DeepSeek fallback |
+| `src/utils/storage.ts` | All `chrome.storage.sync` reads/writes |
+| `src/utils/badge.ts` | Updates Chrome action badge with overdue count |
+| `src/constants/index.ts` | `API_BASE_URL`, `UPGRADE_URL`, `OWNER_KEYS`, default settings |
+| `src/types/index.ts` | All shared TypeScript interfaces |
+| `src/dashboard/Dashboard.tsx` | Main dashboard (sorting, empty state, onboarding) |
+| `src/dashboard/components/FollowUpPanel.tsx` | AI draft UI + upgrade prompts |
+| `src/options/index.tsx` | Settings page with license key validation |
+| `src/content/trackCard.ts` | Gmail inject card + onboarding + track limit enforcement |
+| `src/background/index.ts` | Service worker: badge refresh on storage change |
 
 ---
 
-## Privacy
+## 🌐 Backend API
 
-- All data is stored locally using `chrome.storage.sync`
-- The only external call made is to the OpenAI API (only when you click "Generate Follow-Up")
-- Your OpenAI API key never leaves your device except to reach OpenAI directly
-- No analytics, no tracking, no backend
+The serverless backend lives at `https://proposal-rescue.vercel.app`
 
+### `POST /api/generate-followup`
+Generates an AI follow-up email. Requires Pro or Owner license.
+
+```json
+// Request
+{
+  "licenseKey": "PR-XXXX-XXXX-XXXX",
+  "threadContext": {
+    "subject": "Proposal for Website Redesign",
+    "participantName": "John",
+    "followUpCount": 0,
+    "lastUserEmailDate": "2024-01-15"
+  },
+  "tone": "professional"
+}
+
+// Response 200
+{ "draft": "...", "followUpLabel": "First Follow-Up" }
+
+// Response 403 (free user)
+{ "error": "AI generation requires a Proposal Rescue Pro license.", "upgrade_url": "..." }
+```
+
+### `POST /api/validate-license`
+Validates a license key.
+
+```json
+// Request
+{ "licenseKey": "PR-XXXX-XXXX-XXXX" }
+
+// Response 200
+{ "valid": true, "plan": "pro", "message": "License valid — Plan: pro" }
+```
+
+---
+
+## 🚀 Deployment
+
+### Push to GitHub
+
+```bash
+git add .
+git commit -m "your message"
+git push origin master
+```
+
+> ⚠️ `node_modules/` and `dist/` are in `.gitignore` — never commit them.
+
+### Backend → Vercel
+
+1. Push `proposal-rescue-api/` to its own GitHub repo
+2. Import into [vercel.com](https://vercel.com) → New Project
+3. Add environment variables in Vercel Dashboard:
+
+| Variable | Value |
+|---|---|
+| `DEEPSEEK_API_KEY` | Your DeepSeek API key |
+| `OWNER_KEYS` | `Z5-OWNER` |
+
+4. Deploy — Vercel assigns the URL automatically
+
+---
+
+## 📋 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Extension UI | React 18, TypeScript, Tailwind CSS v3 |
+| Extension Build | Vite 5 (dual config: MPA pages + IIFE content script) |
+| Gmail Integration | MutationObserver, Chrome Manifest V3 |
+| Data Persistence | `chrome.storage.sync` |
+| Backend | Vercel Serverless Functions (Node.js / TypeScript) |
+| AI Model | DeepSeek `deepseek-chat` via OpenAI-compatible SDK |
+| Version Control | Git → GitHub (`Z5SUS/proposal-rescue`) |
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Supabase integration — real license key database
+- [ ] Lemon Squeezy / Paddle — payment processing + auto license generation
+- [ ] Marketing landing page at `proposal-rescue.vercel.app`
+- [ ] Email reminders for overdue threads
+- [ ] Analytics dashboard (free → pro conversion tracking)
+
+---
+
+*Built with ❤️ — Proposal Rescue © 2026*

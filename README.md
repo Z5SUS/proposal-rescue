@@ -2,257 +2,229 @@
 
 > **Never lose a client because you forgot to follow up.**
 
-Proposal Rescue is a Chrome Extension that sits inside Gmail and automatically tracks proposal conversations, reminds you to follow up, and generates AI-written follow-up email drafts — so no deal ever goes cold because of a missed message.
+A Chrome Extension that lives inside Gmail, tracks your proposal email threads, reminds you when to follow up, and generates AI-written follow-up drafts — so no deal goes cold because of a missed reply.
 
 ---
 
-## 📦 Repository Structure
+## 📁 Repository Structure
 
 ```
-Desktop/
-├── extension/                  ← Chrome Extension (this repo)
-│   ├── src/
-│   │   ├── background/         ← Service worker (badge updates, alarms)
-│   │   ├── constants/          ← API URLs, storage keys, Gmail selectors
-│   │   ├── content/            ← Gmail content script + onboarding UI
-│   │   ├── dashboard/          ← Dashboard React app (thread list, panels)
-│   │   ├── hooks/              ← useThreads, useSettings React hooks
-│   │   ├── options/            ← Settings page (license key, interval, tone)
-│   │   ├── popup/              ← Popup (quick stats + open dashboard)
-│   │   ├── styles/             ← Global CSS / Tailwind
-│   │   ├── types/              ← Shared TypeScript types
-│   │   └── utils/
-│   │       ├── api.ts          ← Proxy API calls (DeepSeek / Vercel backend)
-│   │       ├── badge.ts        ← Chrome action badge (overdue count)
-│   │       ├── dates.ts        ← Date formatting helpers
-│   │       ├── entitlements.ts ← Free vs Pro feature gating
-│   │       ├── gmail.ts        ← Gmail DOM helpers
-│   │       ├── gmailObserver.ts← MutationObserver for Gmail SPA navigation
-│   │       └── storage.ts      ← chrome.storage.sync read/write helpers
-│   ├── public/                 ← Static assets (icons, manifest.json)
-│   ├── dist/                   ← Build output (git-ignored)
-│   ├── vite.config.ts          ← Vite build config (pages + background)
-│   ├── vite.content.config.ts  ← Vite IIFE build for content script
-│   ├── tailwind.config.js
-│   ├── tsconfig.json
-│   └── package.json
+proposal-rescue/                     ← Single GitHub repo (Z5SUS/proposal-rescue)
 │
-└── proposal-rescue-api/        ← Vercel Serverless Backend (separate repo)
-    ├── api/
-    │   ├── generate-followup.ts ← POST /api/generate-followup
-    │   └── validate-license.ts  ← POST /api/validate-license
-    ├── .env.example
-    ├── vercel.json
-    └── package.json
+├── api/                             ← Vercel Serverless Backend
+│   ├── generate-followup.ts         ← POST /api/generate-followup
+│   └── validate-license.ts          ← POST /api/validate-license
+│
+├── src/                             ← Chrome Extension source
+│   ├── background/index.ts          ← Service worker: badge updates, alarms
+│   ├── constants/index.ts           ← API URLs, storage keys, Gmail selectors
+│   ├── content/                     ← Gmail MutationObserver + track card UI
+│   ├── dashboard/                   ← React dashboard (thread list, AI panel)
+│   ├── hooks/                       ← useThreads, useSettings
+│   ├── options/index.tsx            ← Settings page (license, interval, tone)
+│   ├── popup/index.tsx              ← Popup (Open Dashboard / Settings)
+│   ├── styles/global.css            ← Tailwind base + design tokens
+│   ├── types/index.ts               ← Shared TypeScript interfaces
+│   └── utils/
+│       ├── api.ts                   ← validateLicenseAPI, generateFollowUpAPI
+│       ├── badge.ts                 ← Chrome action badge (overdue count)
+│       ├── entitlements.ts          ← Free vs Pro feature gating
+│       ├── storage.ts               ← chrome.storage.sync helpers
+│       └── ...
+│
+├── public/manifest.json             ← Chrome Manifest V3
+├── vercel.json                      ← Vercel: CORS headers, skip vite build
+├── .gitignore                       ← Ignores node_modules/, dist/, .vercel/
+├── package.json
+├── vite.config.ts                   ← Builds pages + background
+└── vite.content.config.ts           ← Builds content script as IIFE
 ```
 
 ---
 
 ## ✅ Features
 
-### Core Extension
+### Core
 | Feature | Description |
 |---|---|
-| Gmail MutationObserver | Detects thread navigation inside Gmail's SPA |
-| Thread Tracking | One-click tracking of proposal email threads |
-| Dashboard | Full React dashboard showing active, snoozed, and archived threads |
-| Snooze | Snooze a thread for 1 day, 3 days, or 1 week |
-| Won / Lost / Stop Tracking | Mark outcomes and archive threads |
-| AI Follow-up Generation | Generate a draft follow-up and insert it into Gmail compose |
-| Settings Page | Configure follow-up interval, AI tone, and license key |
-| chrome.storage.sync | All data persists across devices via Chrome sync |
+| Gmail Detection | MutationObserver tracks thread navigation inside Gmail's SPA |
+| One-click Tracking | Injected card in Gmail lets you track any thread instantly |
+| Dashboard | React side panel: active, snoozed, and archived threads |
+| Snooze | Snooze threads for Tomorrow / 3 Days / 1 Week |
+| Won / Lost / Stop | Mark deal outcomes and archive from the dashboard |
+| AI Follow-up Generation | Generate a draft and insert it directly into Gmail compose |
+| Settings Page | License key, follow-up interval, and AI tone |
+| chrome.storage.sync | All data syncs across Chrome devices |
 
 ### Feature Gating (Free vs Pro)
-| Feature | Free | Pro |
+| Feature | Free | Pro / Owner |
 |---|---|---|
 | Active tracked threads | Max **5** | **Unlimited** |
 | AI follow-up drafts | **1 lifetime** trial | **Unlimited** |
 | Tone selection | ✅ | ✅ |
-| Onboarding guide | ✅ | ✅ |
 | Dashboard + Snooze + Won/Lost | ✅ | ✅ |
 
-### UX Improvements
+### UX & Intelligence
 | Feature | Description |
 |---|---|
-| **Onboarding Guide** | First-run floating panel shown once in Gmail — dismissed with "Got It" |
-| **Priority Dashboard Sort** | Overdue → oldest next action date → most recent email activity |
-| **Second Follow-Up Labels** | "First Follow-Up" / "Second Follow-Up" label shown above AI drafts |
-| **Action Badge** | Red Chrome badge shows exact count of overdue threads |
-| **Upgrade Prompts** | Contextual upgrade cards shown when free limits are hit |
-| **Empty State** | Clean empty dashboard with "Show Me How" button |
+| Priority sorting | Overdue first → Oldest due date → Most recent activity |
+| Overdue badge | Red Chrome icon badge shows exact overdue count |
+| Follow-up labels | Panel shows "First Follow-Up" or "Second Follow-Up" |
+| Upgrade prompts | Inline cards when free limits are reached |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────┐
-│       Chrome Extension          │
-│  (Gmail content script +        │
-│   React dashboard/options/popup)│
-└──────────────┬──────────────────┘
-               │  HTTPS
-               ▼
-┌─────────────────────────────────┐
-│    Vercel Serverless Backend    │
-│  proposal-rescue.vercel.app/api │
-│                                 │
-│  POST /api/generate-followup    │
-│  POST /api/validate-license     │
-└──────────────┬──────────────────┘
-               │
-               ▼
-┌─────────────────────────────────┐
-│        DeepSeek API             │
-│   api.deepseek.com              │
-│   model: deepseek-chat          │
-└─────────────────────────────────┘
+Chrome Extension
+       ↓ HTTPS
+Vercel Serverless (proposal-rescue.vercel.app/api)
+  POST /api/validate-license
+  POST /api/generate-followup
+       ↓
+DeepSeek API (deepseek-chat)
+
+Future: Supabase (license key database)
+```
+
+### AI Generation Routing
+
+```
+User clicks "Generate Draft"
+  ↓
+licenseKey starts with "sk-"?
+  YES → direct DeepSeek call (client-side)
+  NO  → POST /api/generate-followup (Vercel)
+          Owner/Pro key → server-side DeepSeek → draft returned
+          Free key       → 403 → upgrade prompt shown
+Free user with 1 trial left?
+  YES → direct DeepSeek fallback
+  NO  → upgrade prompt
 ```
 
 ---
 
 ## 🔑 License Key System
 
-| Plan | Format | Capabilities |
+| Plan | Key Format | Access |
 |---|---|---|
-| **Free** | No key needed | 5 threads, 1 AI draft |
-| **Pro** | `PR-XXXX-XXXX-XXXX` | Unlimited threads + AI drafts |
-| **Owner** | `Z5-OWNER` | Internal testing — same as Pro |
+| **Free** | No key | 5 threads, 1 AI draft |
+| **Pro** | `PR-XXXX-XXXX-XXXX` | Unlimited |
+| **Owner** | `Z5-OWNER` | Unlimited — personal use |
 
-### Validation Flow
-1. User enters license key in **Settings → License Key** → clicks **Validate**
-2. Extension calls `POST /api/validate-license`
-3. Backend returns `{ valid: true, plan: "pro" }`
-4. Extension stores result in `chrome.storage.sync`
-5. All feature gates now allow Pro access
+### Activate Owner Access (No Payment)
+
+1. Open **Settings** → **License & Account**
+2. Enter `Z5-OWNER`
+3. Click **Validate**
+4. Badge shows **✓ Owner Access** — all limits lifted
+
+> Works fully offline. No Supabase, no payment needed.
 
 ---
 
 ## 🛠️ Local Development
 
-### 1. Clone & Install
-
 ```bash
+# Clone and install
 git clone https://github.com/Z5SUS/proposal-rescue.git
 cd proposal-rescue
 npm install
-```
 
-### 2. Build
-
-```bash
+# Build
 npm run build
-```
 
-### 3. Load in Chrome
+# Load in Chrome
+# chrome://extensions → Developer Mode → Load Unpacked → select dist/
 
-1. Open `chrome://extensions`
-2. Enable **Developer Mode** (top right toggle)
-3. Click **Load Unpacked**
-4. Select the `dist/` folder
-
-### 4. Watch Mode (auto-rebuild on save)
-
-```bash
+# Watch mode
 npm run dev
 ```
 
----
+### Scripts
 
-## 📜 Available Scripts
-
-| Script | Description |
+| Command | Description |
 |---|---|
-| `npm run dev` | Watch mode — rebuilds pages + content script on file change |
+| `npm run dev` | Watch mode — auto-rebuild on save |
 | `npm run build` | Full production build → `dist/` |
-| `npm run build:pages` | Builds popup, dashboard, options, background service worker |
-| `npm run build:content` | Builds Gmail content script as IIFE (required by Chrome) |
-| `npm run type-check` | TypeScript type checking without emitting files |
+| `npm run build:pages` | Builds popup, dashboard, options, background |
+| `npm run build:content` | Builds Gmail content script as IIFE |
+| `npm run type-check` | TypeScript check (no emit) |
 
 ---
 
-## 🔧 Key Source Files
+## 🌐 Vercel Backend
 
-| File | Purpose |
-|---|---|
-| `src/utils/entitlements.ts` | Central feature gating — `isProUser()`, `canTrackMore()`, `canUseAIDraft()` |
-| `src/utils/api.ts` | Routes AI generation to Vercel backend or direct DeepSeek fallback |
-| `src/utils/storage.ts` | All `chrome.storage.sync` reads/writes |
-| `src/utils/badge.ts` | Updates Chrome action badge with overdue count |
-| `src/constants/index.ts` | `API_BASE_URL`, `UPGRADE_URL`, `OWNER_KEYS`, default settings |
-| `src/types/index.ts` | All shared TypeScript interfaces |
-| `src/dashboard/Dashboard.tsx` | Main dashboard (sorting, empty state, onboarding) |
-| `src/dashboard/components/FollowUpPanel.tsx` | AI draft UI + upgrade prompts |
-| `src/options/index.tsx` | Settings page with license key validation |
-| `src/content/trackCard.ts` | Gmail inject card + onboarding + track limit enforcement |
-| `src/background/index.ts` | Service worker: badge refresh on storage change |
+Live at: `https://proposal-rescue.vercel.app`
 
----
+### `POST /api/validate-license`
+```json
+// Request
+{ "licenseKey": "Z5-OWNER" }
 
-## 🌐 Backend API
-
-The serverless backend lives at `https://proposal-rescue.vercel.app`
+// Response
+{ "valid": true, "plan": "owner", "message": "License valid — Plan: owner" }
+```
 
 ### `POST /api/generate-followup`
-Generates an AI follow-up email. Requires Pro or Owner license.
-
 ```json
 // Request
 {
-  "licenseKey": "PR-XXXX-XXXX-XXXX",
+  "licenseKey": "Z5-OWNER",
   "threadContext": {
     "subject": "Proposal for Website Redesign",
     "participantName": "John",
     "followUpCount": 0,
-    "lastUserEmailDate": "2024-01-15"
+    "lastUserEmailDate": "2024-06-01"
   },
   "tone": "professional"
 }
 
-// Response 200
+// Response
 { "draft": "...", "followUpLabel": "First Follow-Up" }
-
-// Response 403 (free user)
-{ "error": "AI generation requires a Proposal Rescue Pro license.", "upgrade_url": "..." }
 ```
 
-### `POST /api/validate-license`
-Validates a license key.
+### Required Vercel Environment Variables
 
-```json
-// Request
-{ "licenseKey": "PR-XXXX-XXXX-XXXX" }
-
-// Response 200
-{ "valid": true, "plan": "pro", "message": "License valid — Plan: pro" }
-```
-
----
-
-## 🚀 Deployment
-
-### Push to GitHub
-
-```bash
-git add .
-git commit -m "your message"
-git push origin master
-```
-
-> ⚠️ `node_modules/` and `dist/` are in `.gitignore` — never commit them.
-
-### Backend → Vercel
-
-1. Push `proposal-rescue-api/` to its own GitHub repo
-2. Import into [vercel.com](https://vercel.com) → New Project
-3. Add environment variables in Vercel Dashboard:
+Set in **Vercel Dashboard → Project → Settings → Environment Variables**:
 
 | Variable | Value |
 |---|---|
 | `DEEPSEEK_API_KEY` | Your DeepSeek API key |
 | `OWNER_KEYS` | `Z5-OWNER` |
 
-4. Deploy — Vercel assigns the URL automatically
+---
+
+## 🚀 Deployment
+
+```bash
+# Push to GitHub → Vercel auto-deploys
+git add .
+git commit -m "your message"
+git push origin master
+```
+
+> ⚠️ `node_modules/` and `dist/` are git-ignored. Never commit them.
+
+---
+
+## 🐛 Bugs Fixed
+
+### `validateLicense is not defined` — Settings crash
+- **Cause:** `options/index.tsx` called `validateLicense()` which was never imported.
+- **Fix:** Imported `validateLicenseAPI` from `@/utils/api`. Also added persistence of license state to `chrome.storage.sync` after validation. Fixed plan badge to correctly show `✓ Owner Access`.
+
+### "Show Me How" button removed
+- Removed the button and onboarding modal from the empty dashboard state. Replaced with a plain text instruction.
+
+### Vercel 404 on `/api/*`
+- **Cause:** The `api/` folder was in a separate local directory never committed to the repo.
+- **Fix:** Moved both API files into the repo root. Added `vercel.json` for CORS + build config.
+
+### `vite: Permission denied` (Vercel exit 126)
+- **Cause:** `node_modules/` was committed to Git on Windows. Vercel (Linux) couldn't execute the binary.
+- **Fix:** Added `.gitignore`, ran `git rm -r --cached node_modules`, regenerated `package-lock.json`.
 
 ---
 
@@ -266,18 +238,18 @@ git push origin master
 | Data Persistence | `chrome.storage.sync` |
 | Backend | Vercel Serverless Functions (Node.js / TypeScript) |
 | AI Model | DeepSeek `deepseek-chat` via OpenAI-compatible SDK |
-| Version Control | Git → GitHub (`Z5SUS/proposal-rescue`) |
+| Repo + CI/CD | GitHub → Vercel (auto-deploy on push) |
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Supabase integration — real license key database
-- [ ] Lemon Squeezy / Paddle — payment processing + auto license generation
-- [ ] Marketing landing page at `proposal-rescue.vercel.app`
+- [ ] Supabase — real license key database
+- [ ] Payment integration (Lemon Squeezy / Paddle)
+- [ ] Marketing landing page
 - [ ] Email reminders for overdue threads
-- [ ] Analytics dashboard (free → pro conversion tracking)
+- [ ] Analytics (free → pro conversion)
 
 ---
 
-*Built with ❤️ — Proposal Rescue © 2026*
+*Proposal Rescue © 2026 — Z5SUS/proposal-rescue*

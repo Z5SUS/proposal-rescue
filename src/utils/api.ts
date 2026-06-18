@@ -138,12 +138,12 @@ export async function generateFollowUpAPI(payload: GenerateFollowUpPayload): Pro
   return await generateDirectDeepSeek(FALLBACK_DEEPSEEK_KEY, payload.threadContext.subject, payload.threadContext.participantName, payload.tone);
 }
 
-export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: boolean; plan: string }> {
+export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: boolean; plan: string; expiresAt?: string | null; message?: string }> {
   const key = licenseKey.trim();
 
   // Local Owner Check (Mode 1 / Temporary Owner Access)
   if (OWNER_KEYS.includes(key)) {
-    return { valid: true, plan: 'owner' };
+    return { valid: true, plan: 'owner', message: 'License valid' };
   }
 
   // Validate DeepSeek/OpenAI keys directly if passed as a license key
@@ -162,7 +162,7 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
         })
       });
       if (response.ok) {
-        return { valid: true, plan: 'pro' };
+        return { valid: true, plan: 'pro', message: 'License valid' };
       }
     } catch (e) {
       // try OpenAI next
@@ -182,7 +182,7 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
         })
       });
       if (response.ok) {
-        return { valid: true, plan: 'pro' };
+        return { valid: true, plan: 'pro', message: 'License valid' };
       }
     } catch (e) {
       // both failed
@@ -206,6 +206,8 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
       return {
         valid: !!data?.valid,
         plan: data?.plan || 'free',
+        expiresAt: data?.expiresAt || null,
+        message: data?.message || '',
       };
     }
   } catch (err) {
@@ -215,14 +217,14 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
   // Local validation fallback for development
   const lowerKey = key.toLowerCase();
   if (lowerKey.startsWith('pr-') || lowerKey.includes('pro')) {
-    return { valid: true, plan: 'pro' };
+    return { valid: true, plan: 'pro', message: 'License valid (Local Fallback)' };
   }
   if (lowerKey.startsWith('mg-') || lowerKey.includes('mega')) {
-    return { valid: true, plan: 'mega' };
+    return { valid: true, plan: 'mega', message: 'License valid (Local Fallback)' };
   }
   if (lowerKey.includes('owner')) {
-    return { valid: true, plan: 'owner' };
+    return { valid: true, plan: 'owner', message: 'License valid (Local Fallback)' };
   }
 
-  return { valid: false, plan: 'free' };
+  return { valid: false, plan: 'free', message: 'Invalid or unrecognized license key.' };
 }

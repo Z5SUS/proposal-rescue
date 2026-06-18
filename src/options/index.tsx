@@ -62,7 +62,7 @@ function Options(): React.JSX.Element {
         setValidationSuccess(true);
         setTimeout(() => setValidationSuccess(false), 3000);
       } else {
-        setError('License key is invalid.');
+        setError(result.message || 'License key is invalid.');
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to validate license.');

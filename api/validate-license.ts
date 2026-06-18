@@ -19,11 +19,11 @@ function getSupabase() {
   return supabaseClient;
 }
 
-async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean; plan: string; expiresAt?: string | null }> {
+async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean; plan: string; expiresAt?: string | null; message?: string }> {
   const key = (licenseKey ?? '').trim();
 
   if (!key) {
-    return { valid: false, plan: 'free' };
+    return { valid: false, plan: 'free', message: 'License key is empty.' };
   }
 
   // Owner check (bypasses Supabase query)
@@ -42,16 +42,16 @@ async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean;
 
     if (error) {
       console.error('[validate-license] Database error:', error);
-      throw new Error('Database check failed.');
+      return { valid: false, plan: 'free', message: 'Database check failed.' };
     }
 
     if (!license) {
-      return { valid: false, plan: 'free' };
+      return { valid: false, plan: 'free', message: 'License not found' };
     }
 
     // Check status
-    if (license.status === 'expired' || license.status === 'cancelled') {
-      return { valid: false, plan: 'free' };
+    if (license.status !== 'active') {
+      return { valid: false, plan: 'free', message: 'License inactive' };
     }
 
     // Expiry check
@@ -64,7 +64,7 @@ async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean;
           .update({ status: 'expired' })
           .eq('license_key', key);
 
-        return { valid: false, plan: 'free' };
+        return { valid: false, plan: 'free', message: 'License expired' };
       }
     }
 
@@ -72,10 +72,11 @@ async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean;
       valid: true,
       plan: license.plan,
       expiresAt: license.expires_at,
+      message: 'License valid',
     };
   } catch (err: any) {
     console.error('[validate-license] Unexpected error during verification:', err);
-    return { valid: false, plan: 'free' };
+    return { valid: false, plan: 'free', message: 'Internal validation error.' };
   }
 }
 
@@ -94,17 +95,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { licenseKey } = req.body as { licenseKey?: string };
 
   if (typeof licenseKey !== 'string') {
-    return res.status(400).json({ error: 'Missing required field: licenseKey (string).' });
+    return res.status(200).json({
+      valid: false,
+      plan: 'free',
+      message: 'Missing required field: licenseKey (string).',
+    });
   }
 
   const result = await validateLicenseKey(licenseKey);
 
-  return res.status(200).json({
-    valid: result.valid,
-    plan: result.plan,
-    expiresAt: result.expiresAt,
-    message: result.valid
-      ? `License valid — Plan: ${result.plan}`
-      : 'Invalid or unrecognized license key.',
-  });
+  return res.status(200).json(result);
 }

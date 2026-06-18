@@ -7,6 +7,8 @@ import { SnoozedCard } from '@/dashboard/components/SnoozedCard';
 import { ArchivedCard } from '@/dashboard/components/ArchivedCard';
 import { EmptyState } from '@/dashboard/components/EmptyState';
 import { FollowUpPanel } from '@/dashboard/components/FollowUpPanel';
+import { useSettings } from '@/hooks/useSettings';
+import { UpgradeModal } from '@/dashboard/components/UpgradeModal';
 
 /** Builds the Gmail URL for a given thread ID */
 function gmailThreadUrl(threadId: string): string {
@@ -32,6 +34,9 @@ export function Dashboard(): React.JSX.Element {
   const [followUpThread, setFollowUpThread] = useState<TrackedThread | null>(null);
   const [snoozedOpen, setSnoozedOpen] = useState(true);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const settings = useSettings();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const showUpgradeButton = !settings.licenseValid || settings.licensePlan === 'free';
 
   function viewThread(threadId: string): void {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -129,13 +134,23 @@ export function Dashboard(): React.JSX.Element {
           <>
             <section>
               <div className="pr-flex pr-items-center pr-justify-between pr-mb-2 pr-px-1">
-                <h2 className="pr-text-xs pr-font-semibold pr-text-ink-500 pr-uppercase pr-tracking-wider">
-                  Needs Action
-                </h2>
-                {overdueCount > 0 && (
-                  <span className="pr-text-[10px] pr-font-bold pr-text-brand-600 pr-bg-brand-50 pr-border pr-border-brand-200 pr-rounded-full pr-px-1.5 pr-py-0.5">
-                    {overdueCount} overdue
-                  </span>
+                <div className="pr-flex pr-items-center pr-gap-2">
+                  <h2 className="pr-text-xs pr-font-semibold pr-text-ink-500 pr-uppercase pr-tracking-wider">
+                    Needs Action
+                  </h2>
+                  {overdueCount > 0 && (
+                    <span className="pr-text-[10px] pr-font-bold pr-text-brand-600 pr-bg-brand-50 pr-border pr-border-brand-200 pr-rounded-full pr-px-1.5 pr-py-0.5">
+                      {overdueCount} overdue
+                    </span>
+                  )}
+                </div>
+                {showUpgradeButton && (
+                  <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="pr-flex pr-items-center pr-gap-1 pr-px-2.5 pr-py-1 pr-bg-amber-500 hover:pr-bg-amber-600 pr-text-white pr-text-[10px] pr-font-bold pr-rounded-md pr-transition-colors pr-cursor-pointer pr-border-0 pr-uppercase pr-tracking-wider pr-shadow-sm"
+                  >
+                    Upgrade
+                  </button>
                 )}
               </div>
               {active.length === 0 ? (
@@ -255,6 +270,13 @@ export function Dashboard(): React.JSX.Element {
         <FollowUpPanel
           thread={followUpThread}
           onClose={() => setFollowUpThread(null)}
+        />
+      )}
+
+      {/* ── Upgrade modal (modal overlay) ───────────────────────── */}
+      {showUpgradeModal && (
+        <UpgradeModal
+          onClose={() => setShowUpgradeModal(false)}
         />
       )}
 

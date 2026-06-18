@@ -43,16 +43,20 @@ export function Dashboard(): React.JSX.Element {
   }
 
   function openGmailToTrack(): void {
-    // Query ALL tabs in the current window — not just the "active" one,
-    // because from a side panel the active tab can be the panel itself.
+    // The side panel is embedded inside Gmail, so just navigating the
+    // underlying Gmail tab to the inbox is the most reliable action.
+    // The user can then open any thread and see the Track card.
     chrome.tabs.query({ currentWindow: true }, (tabs) => {
       const gmailTab = tabs.find((t) => t.url?.includes('mail.google.com'));
       if (gmailTab?.id != null) {
-        // A Gmail tab already exists — bring it to the front
-        chrome.tabs.update(gmailTab.id, { active: true });
+        // Navigate to inbox so the user can open a thread
+        chrome.tabs.update(gmailTab.id, {
+          url: 'https://mail.google.com/#inbox',
+          active: true,
+        });
       } else {
-        // No Gmail tab open — create one
-        chrome.tabs.create({ url: 'https://mail.google.com' });
+        // No Gmail tab — open one
+        chrome.tabs.create({ url: 'https://mail.google.com/#inbox' });
       }
     });
   }

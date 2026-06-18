@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@/styles/global.css';
 import { getSettings, saveSettings } from '@/utils/storage';
+import { validateLicenseAPI } from '@/utils/api';
 import type { AppSettings, FollowUpInterval, AiTone } from '@/types';
 import { DEFAULT_SETTINGS } from '@/constants';
 
@@ -46,9 +47,17 @@ function Options(): React.JSX.Element {
     setError(null);
     setValidationSuccess(false);
     try {
-      const result = await validateLicense(licenseKey.trim());
+      const result = await validateLicenseAPI(licenseKey.trim());
       setLicenseValid(result.valid);
       setLicensePlan(result.plan as 'free' | 'pro');
+      // Persist validated license to storage immediately
+      const current = await getSettings();
+      await saveSettings({
+        ...current,
+        licenseKey: licenseKey.trim(),
+        licenseValid: result.valid,
+        licensePlan: result.plan as 'free' | 'pro',
+      });
       if (result.valid) {
         setValidationSuccess(true);
         setTimeout(() => setValidationSuccess(false), 3000);
@@ -149,12 +158,16 @@ function Options(): React.JSX.Element {
               <span className="pr-text-[10px] pr-text-ink-400">Current Plan:</span>
               <span
                 className={`pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase ${
-                  licenseValid && licensePlan === 'pro'
-                    ? 'pr-bg-green-50 pr-text-success pr-border pr-border-green-200'
-                    : 'pr-bg-surface-100 pr-text-ink-500'
-                }`}
-              >
-                {licenseValid && licensePlan === 'pro' ? '✓ Pro Active' : 'Free Trial'}
+                licenseValid && (licensePlan === 'pro' || licensePlan === 'owner')
+                  ? 'pr-bg-green-50 pr-text-success pr-border pr-border-green-200'
+                  : 'pr-bg-surface-100 pr-text-ink-500'
+              }`}
+            >
+              {licenseValid && licensePlan === 'owner'
+                ? '✓ Owner Access'
+                : licenseValid && licensePlan === 'pro'
+                ? '✓ Pro Active'
+                : 'Free Trial'}
               </span>
             </div>
 

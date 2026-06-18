@@ -32,7 +32,6 @@ export function Dashboard(): React.JSX.Element {
   const [followUpThread, setFollowUpThread] = useState<TrackedThread | null>(null);
   const [snoozedOpen, setSnoozedOpen] = useState(true);
   const [archivedOpen, setArchivedOpen] = useState(false);
-  const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
 
   function viewThread(threadId: string): void {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -68,15 +67,9 @@ export function Dashboard(): React.JSX.Element {
               <span className="pr-text-3xl">🚀</span>
             </div>
             <h3 className="pr-text-sm pr-font-bold pr-text-ink-900 pr-mb-2">Track Your First Proposal</h3>
-            <p className="pr-text-xs pr-text-ink-500 pr-leading-relaxed pr-max-w-xs pr-mx-auto pr-mb-4">
-              Proposal Rescue helps you never lose a client due to a missed follow-up. Start by tracking a thread in Gmail.
+            <p className="pr-text-xs pr-text-ink-500 pr-leading-relaxed pr-max-w-xs pr-mx-auto">
+              Open any email thread in Gmail and click <strong>Track</strong> on the card that appears at the top of the thread.
             </p>
-            <button
-              onClick={() => setShowOnboardingGuide(true)}
-              className="pr-px-5 pr-py-2 pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-text-xs pr-font-semibold pr-rounded-lg pr-shadow-sm pr-transition-colors pr-cursor-pointer pr-border-0"
-            >
-              Show Me How
-            </button>
           </div>
         ) : (
           <>
@@ -212,54 +205,6 @@ export function Dashboard(): React.JSX.Element {
         />
       )}
 
-      {/* ── Onboarding Guide Overlay ────────────────────────────── */}
-      {showOnboardingGuide && (
-        <div
-          className="pr-fixed pr-inset-0 pr-bg-black/50 pr-z-50 pr-flex pr-items-center pr-justify-center pr-p-4 pr-backdrop-blur-[1px] animate-fade-in"
-          onClick={() => setShowOnboardingGuide(false)}
-        >
-          <div
-            className="pr-bg-white pr-rounded-xl pr-max-w-xs pr-w-full pr-p-5 pr-shadow-panel pr-relative pr-space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="pr-flex pr-items-center pr-justify-between">
-              <h4 className="pr-text-sm pr-font-bold pr-text-ink-900">How to use Proposal Rescue</h4>
-              <button
-                onClick={() => setShowOnboardingGuide(false)}
-                className="pr-text-ink-400 hover:pr-text-ink-600 pr-bg-transparent pr-border-0 pr-cursor-pointer pr-text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="pr-space-y-3 pr-text-xs pr-text-ink-600">
-              <div className="pr-flex pr-gap-3">
-                <span className="pr-font-bold pr-text-brand-600 pr-shrink-0 pr-w-4 pr-h-4 pr-bg-brand-50 pr-rounded-full pr-flex pr-items-center pr-justify-center">1</span>
-                <p>Open any email thread or proposal in your Gmail inbox.</p>
-              </div>
-              <div className="pr-flex pr-gap-3">
-                <span className="pr-font-bold pr-text-brand-600 pr-shrink-0 pr-w-4 pr-h-4 pr-bg-brand-50 pr-rounded-full pr-flex pr-items-center pr-justify-center">2</span>
-                <p>Locate the tracking card injected at the top of the thread.</p>
-              </div>
-              <div className="pr-flex pr-gap-3">
-                <span className="pr-font-bold pr-text-brand-600 pr-shrink-0 pr-w-4 pr-h-4 pr-bg-brand-50 pr-rounded-full pr-flex pr-items-center pr-justify-center">3</span>
-                <p>Select your follow-up frequency (e.g. 5 days) and click <strong>Track</strong>.</p>
-              </div>
-              <div className="pr-flex pr-gap-3">
-                <span className="pr-font-bold pr-text-brand-600 pr-shrink-0 pr-w-4 pr-h-4 pr-bg-brand-50 pr-rounded-full pr-flex pr-items-center pr-justify-center">4</span>
-                <p>If they don't reply in time, the proposal becomes overdue and alerts you here!</p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowOnboardingGuide(false)}
-              className="pr-w-full pr-py-2 pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-text-xs pr-font-semibold pr-rounded-lg pr-transition-colors pr-cursor-pointer pr-border-0"
-            >
-              Got It!
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

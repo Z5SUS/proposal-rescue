@@ -17,7 +17,7 @@ interface GenerateFollowUpBody {
 }
 
 // ─── Valid license plans that allow AI generation ─────────────────────────────
-const PAID_PLANS = new Set(['solo', 'agency', 'lifetime', 'owner']);
+const PAID_PLANS = new Set(['pro', 'mega', 'owner']);
 
 // ─── Owner Keys (same set as extension) ──────────────────────────────────────
 const OWNER_KEYS = (process.env.OWNER_KEYS ?? 'Z5-OWNER').split(',').map((k) => k.trim());
@@ -26,10 +26,9 @@ const OWNER_KEYS = (process.env.OWNER_KEYS ?? 'Z5-OWNER').split(',').map((k) => 
 function getPlanForLicense(licenseKey: string): string {
   if (!licenseKey) return 'free';
   if (OWNER_KEYS.includes(licenseKey)) return 'owner';
-  // TODO: Query Supabase/DB for real license validation
-  if (/^lt-/i.test(licenseKey)) return 'lifetime';
-  if (/^ag-/i.test(licenseKey)) return 'agency';
-  if (/^pr-/i.test(licenseKey)) return 'solo';
+  // TODO: Query DB for real license validation
+  if (/^(lt|ag|mg)-/i.test(licenseKey)) return 'mega';
+  if (/^pr-/i.test(licenseKey)) return 'pro';
   return 'free';
 }
 

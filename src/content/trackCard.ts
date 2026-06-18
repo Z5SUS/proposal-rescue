@@ -276,9 +276,11 @@ function renderUpgradeNotice(card: HTMLElement): void {
       <div class="pr-logo"><div class="pr-logo-dot"></div></div>
       <span class="pr-name">Proposal Rescue</span>
     </div>
-    <p class="pr-prompt" style="color: #dc2626; font-weight: 600; margin-bottom: 4px; display: block;">Tracking Limit Reached</p>
+    <p class="pr-prompt" style="color: #dc2626; font-weight: 600; margin-bottom: 4px; display: block;">Free Plan Limit Reached</p>
     <p style="font-size: 11px; color: #4b5563; margin-bottom: 12px; line-height: 1.4; display: block;">
-      You've reached the free plan limit of 5 threads. Upgrade to track unlimited conversations.
+      You've reached the Free Plan limit.<br/><br/>
+      Free includes up to 3 active tracked conversations.<br/><br/>
+      Upgrade to continue tracking unlimited client conversations.
     </p>
     <div class="pr-actions">
       <button class="pr-btn pr-btn-primary" id="pr-btn-upgrade">View Plans</button>

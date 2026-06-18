@@ -25,22 +25,16 @@ function validateLicenseKey(licenseKey: string): { valid: boolean; plan: string 
     return { valid: true, plan: 'owner' };
   }
 
-  // Lifetime key pattern: LT-XXXX-XXXX-XXXX
-  if (/^lt-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/i.test(key)) {
-    // TODO: Query Supabase to confirm the key exists and is active
-    return { valid: true, plan: 'lifetime' };
+  // Mega key pattern: LT-XXXX-XXXX-XXXX, AG-XXXX-XXXX-XXXX, or MG-XXXX-XXXX-XXXX
+  if (/^(lt|ag|mg)-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/i.test(key)) {
+    // TODO: Query DB to confirm the key exists and is active
+    return { valid: true, plan: 'mega' };
   }
 
-  // Agency key pattern: AG-XXXX-XXXX-XXXX
-  if (/^ag-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/i.test(key)) {
-    // TODO: Query Supabase to confirm the key exists and is active
-    return { valid: true, plan: 'agency' };
-  }
-
-  // Solo key pattern: PR-XXXX-XXXX-XXXX (legacy + new)
+  // Pro key pattern: PR-XXXX-XXXX-XXXX (legacy + new)
   if (/^pr-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/i.test(key)) {
-    // TODO: Query Supabase to confirm the key exists and is active
-    return { valid: true, plan: 'solo' };
+    // TODO: Query DB to confirm the key exists and is active
+    return { valid: true, plan: 'pro' };
   }
 
   return { valid: false, plan: 'free' };

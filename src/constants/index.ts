@@ -20,65 +20,36 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 // ─── Plan Limits (single source of truth — never hardcode in components) ──────
 
-export type PlanId = 'free' | 'solo' | 'agency' | 'lifetime' | 'owner';
+export type PlanId = 'free' | 'pro' | 'mega' | 'owner';
 
 export interface PlanLimits {
-  maxThreads: number;   // Infinity = unlimited
-  aiDrafts: number;     // Infinity = unlimited
-  unlimited: boolean;   // true for all paid plans
-  multiAccountSupport: boolean; // reserved for agency/lifetime
-  teamDashboard: boolean;       // reserved for agency/lifetime
-  advancedSequences: boolean;   // reserved for agency/lifetime
+  trackedThreads: number;      // Infinity = unlimited
+  aiDraftsEnabled: boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   free: {
-    maxThreads: 5,
-    aiDrafts: 1,
-    unlimited: false,
-    multiAccountSupport: false,
-    teamDashboard: false,
-    advancedSequences: false,
+    trackedThreads: 3,
+    aiDraftsEnabled: false,
   },
-  solo: {
-    maxThreads: Infinity,
-    aiDrafts: Infinity,
-    unlimited: true,
-    multiAccountSupport: false,
-    teamDashboard: false,
-    advancedSequences: false,
+  pro: {
+    trackedThreads: Infinity,
+    aiDraftsEnabled: true,
   },
-  agency: {
-    maxThreads: Infinity,
-    aiDrafts: Infinity,
-    unlimited: true,
-    multiAccountSupport: true,  // reserved — not yet implemented
-    teamDashboard: true,         // reserved — not yet implemented
-    advancedSequences: true,     // reserved — not yet implemented
-  },
-  lifetime: {
-    maxThreads: Infinity,
-    aiDrafts: Infinity,
-    unlimited: true,
-    multiAccountSupport: true,  // reserved — not yet implemented
-    teamDashboard: true,         // reserved — not yet implemented
-    advancedSequences: true,     // reserved — not yet implemented
+  mega: {
+    trackedThreads: Infinity,
+    aiDraftsEnabled: true,
   },
   owner: {
-    maxThreads: Infinity,
-    aiDrafts: Infinity,
-    unlimited: true,
-    multiAccountSupport: true,
-    teamDashboard: true,
-    advancedSequences: true,
+    trackedThreads: Infinity,
+    aiDraftsEnabled: true,
   },
 };
 
 // ─── Plan Display Info (used by upgrade modal) ────────────────────────────────
 
-export const SOLO_CHECKOUT_URL = 'https://rzp.io/rzp/gJyfbGfM';
-export const AGENCY_CHECKOUT_URL = 'https://rzp.io/rzp/mp9UpHn';
-export const LIFETIME_CHECKOUT_URL = 'https://rzp.io/rzp/zEGfDEe';
+export const PRO_CHECKOUT_URL = '';
+export const MEGA_CHECKOUT_URL = '';
 
 export interface PlanInfo {
   id: PlanId;
@@ -91,28 +62,20 @@ export interface PlanInfo {
 
 export const PAID_PLAN_INFO: PlanInfo[] = [
   {
-    id: 'solo',
-    label: 'Solo',
-    price: '$9',
-    billing: '/month',
-    tagline: 'Best for freelancers',
-    checkoutUrl: SOLO_CHECKOUT_URL,
-  },
-  {
-    id: 'agency',
-    label: 'Agency',
+    id: 'pro',
+    label: 'Pro',
     price: '$29',
     billing: '/month',
-    tagline: 'Best for agencies',
-    checkoutUrl: AGENCY_CHECKOUT_URL,
+    tagline: 'Best for professionals',
+    checkoutUrl: PRO_CHECKOUT_URL,
   },
   {
-    id: 'lifetime',
-    label: 'Lifetime',
-    price: '$99',
-    billing: ' one-time',
-    tagline: 'Pay once, use forever',
-    checkoutUrl: LIFETIME_CHECKOUT_URL,
+    id: 'mega',
+    label: 'Mega',
+    price: '$79',
+    billing: '/year',
+    tagline: 'Best value plan',
+    checkoutUrl: MEGA_CHECKOUT_URL,
   },
 ];
 

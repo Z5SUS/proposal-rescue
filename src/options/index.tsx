@@ -11,7 +11,7 @@ function Options(): React.JSX.Element {
   const [tone, setTone] = useState<AiTone>('professional');
   const [licenseKey, setLicenseKeyState] = useState('');
   const [licenseValid, setLicenseValid] = useState(false);
-  const [licensePlan, setLicensePlan] = useState<'free' | 'solo' | 'agency' | 'lifetime' | 'owner'>('free');
+  const [licensePlan, setLicensePlan] = useState<'free' | 'pro' | 'mega' | 'owner'>('free');
   const [validating, setValidating] = useState(false);
   const [validationSuccess, setValidationSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -165,12 +165,10 @@ function Options(): React.JSX.Element {
             >
               {licenseValid && licensePlan === 'owner'
                 ? '✓ Owner Access'
-                : licenseValid && licensePlan === 'lifetime'
-                ? '✓ Lifetime'
-                : licenseValid && licensePlan === 'agency'
-                ? '✓ Agency Plan'
-                : licenseValid && licensePlan === 'solo'
-                ? '✓ Solo Plan'
+                : licenseValid && licensePlan === 'mega'
+                ? '✓ Mega Plan'
+                : licenseValid && licensePlan === 'pro'
+                ? '✓ Pro Plan'
                 : 'Free Plan'}
               </span>
             </div>

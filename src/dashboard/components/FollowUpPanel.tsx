@@ -150,8 +150,11 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
           {canUseAI === false && (
             <div className="pr-flex pr-flex-col pr-items-center pr-justify-center pr-py-8 pr-px-4 pr-text-center pr-bg-surface-50 pr-rounded-lg pr-border pr-border-surface-200">
               <span className="pr-text-2xl pr-mb-2">✨</span>
-              <p className="pr-text-xs pr-text-ink-700 pr-font-medium pr-mb-3 pr-leading-relaxed">
-                You've used your free AI follow-up trial. Upgrade to keep sending AI-powered follow-ups.
+              <p className="pr-text-xs pr-text-ink-700 pr-font-medium pr-mb-1 pr-leading-relaxed">
+                AI Follow-Ups are a premium feature.
+              </p>
+              <p className="pr-text-[11px] pr-text-ink-500 pr-mb-4 pr-leading-relaxed">
+                Upgrade to generate personalized follow-up emails instantly.
               </p>
               <button
                 onClick={() => setShowUpgradeModal(true)}
@@ -182,7 +185,7 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
             <div className="pr-space-y-1.5">
               <div className="pr-flex pr-items-center pr-justify-between pr-px-1">
                 <span className="pr-text-[10px] pr-font-bold pr-text-ink-400 pr-uppercase pr-tracking-wider">
-                  AI Draft (Editable){remainingFreeAIDrafts > 0 ? ` (${remainingFreeAIDrafts} free remaining)` : ''}
+                  AI Draft (Editable){remainingFreeAIDrafts > 0 && remainingFreeAIDrafts !== Infinity ? ` (${remainingFreeAIDrafts} free remaining)` : ''}
                 </span>
                 <span className="pr-text-[10px] pr-text-brand-600 pr-capitalize pr-bg-brand-50 pr-px-1.5 pr-py-0.5 pr-rounded pr-border pr-border-brand-100">
                   {settings.aiTone} Tone

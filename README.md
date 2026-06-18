@@ -17,24 +17,22 @@ proposal-rescue/                     ← Single GitHub repo (Z5SUS/proposal-resc
 │
 ├── src/                             ← Chrome Extension source
 │   ├── background/index.ts          ← Service worker: badge updates, alarms
-│   ├── constants/index.ts           ← API URLs, storage keys, Gmail selectors
+│   ├── constants/index.ts           ← API URLs, storage keys, plan limits, checkout links
 │   ├── content/                     ← Gmail MutationObserver + track card UI
-│   ├── dashboard/                   ← React dashboard (thread list, AI panel)
+│   ├── dashboard/                   ← React dashboard (thread list, AI panel, Upgrade modal)
 │   ├── hooks/                       ← useThreads, useSettings
-│   ├── options/index.tsx            ← Settings page (license, interval, tone)
+│   ├── options/index.tsx            ← Settings page (license validation, tone)
 │   ├── popup/index.tsx              ← Popup (Open Dashboard / Settings)
 │   ├── styles/global.css            ← Tailwind base + design tokens
 │   ├── types/index.ts               ← Shared TypeScript interfaces
 │   └── utils/
 │       ├── api.ts                   ← validateLicenseAPI, generateFollowUpAPI
 │       ├── badge.ts                 ← Chrome action badge (overdue count)
-│       ├── entitlements.ts          ← Free vs Pro feature gating
-│       ├── storage.ts               ← chrome.storage.sync helpers
-│       └── ...
+│       ├── entitlements.ts          ← plan-limits & feature gating
+│       └── storage.ts               ← chrome.storage.sync helpers
 │
 ├── public/manifest.json             ← Chrome Manifest V3
 ├── vercel.json                      ← Vercel: CORS headers, skip vite build
-├── .gitignore                       ← Ignores node_modules/, dist/, .vercel/
 ├── package.json
 ├── vite.config.ts                   ← Builds pages + background
 └── vite.content.config.ts           ← Builds content script as IIFE
@@ -56,21 +54,14 @@ proposal-rescue/                     ← Single GitHub repo (Z5SUS/proposal-resc
 | Settings Page | License key, follow-up interval, and AI tone |
 | chrome.storage.sync | All data syncs across Chrome devices |
 
-### Feature Gating (Free vs Pro)
-| Feature | Free | Pro / Owner |
-|---|---|---|
-| Active tracked threads | Max **5** | **Unlimited** |
-| AI follow-up drafts | **1 lifetime** trial | **Unlimited** |
-| Tone selection | ✅ | ✅ |
-| Dashboard + Snooze + Won/Lost | ✅ | ✅ |
-
-### UX & Intelligence
-| Feature | Description |
-|---|---|
-| Priority sorting | Overdue first → Oldest due date → Most recent activity |
-| Overdue badge | Red Chrome icon badge shows exact overdue count |
-| Follow-up labels | Panel shows "First Follow-Up" or "Second Follow-Up" |
-| Upgrade prompts | Inline cards when free limits are reached |
+### Monetization & Feature Gating
+| Feature | Free ($0) | Pro ($29/mo) | Mega ($79/yr) | Owner (Z5-OWNER) |
+|---|---|---|---|---|
+| Active tracked threads | Max **3** | **Unlimited** | **Unlimited** | **Unlimited** |
+| AI follow-up drafts | ❌ | **Unlimited** | **Unlimited** | **Unlimited** |
+| Tone selection | ❌ | ✅ | ✅ | ✅ |
+| Dashboard + Snooze + Won/Lost | ✅ | ✅ | ✅ | ✅ |
+| Support & Extras | Standard | Standard | **Priority Support** & **Early Access** | Standard |
 
 ---
 
@@ -84,8 +75,6 @@ Vercel Serverless (proposal-rescue.vercel.app/api)
   POST /api/generate-followup
        ↓
 DeepSeek API (deepseek-chat)
-
-Future: Supabase (license key database)
 ```
 
 ### AI Generation Routing
@@ -94,55 +83,63 @@ Future: Supabase (license key database)
 User clicks "Generate Draft"
   ↓
 licenseKey starts with "sk-"?
-  YES → direct DeepSeek call (client-side)
+  YES → direct OpenAI/DeepSeek call (client-side) using user's key
   NO  → POST /api/generate-followup (Vercel)
-          Owner/Pro key → server-side DeepSeek → draft returned
-          Free key       → 403 → upgrade prompt shown
-Free user with 1 trial left?
-  YES → direct DeepSeek fallback
-  NO  → upgrade prompt
+          Owner/Pro/Mega key → server-side DeepSeek → draft returned
+          Free key           → 403 → upgrade prompt shown
 ```
 
 ---
 
 ## 🔑 License Key System
 
-| Plan | Key Format | Access |
+| Plan | Key Prefix / Format | Access |
 |---|---|---|
-| **Free** | No key | 5 threads, 1 AI draft |
-| **Pro** | `PR-XXXX-XXXX-XXXX` | Unlimited |
-| **Owner** | `Z5-OWNER` | Unlimited — personal use |
+| **Free** | No key | Max 3 active threads, no AI follow-ups |
+| **Pro** | `PR-XXXX-XXXX-XXXX` | Unlimited tracking & AI |
+| **Mega** | `LT-`/`AG-`/`MG-XXXX-XXXX-XXXX` | Unlimited tracking & AI + Mega features |
+| **Owner** | `Z5-OWNER` (or OWNER_KEYS list) | Unlimited — personal developer bypass |
 
-### Activate Owner Access (No Payment)
+### Local Dev License Codes
+The extension has local offline validation fallbacks to simplify development:
+- Key prefix `pr-` or including `solo` -> unlocks **Pro**.
+- Key prefix `lt-`, `ag-`, `mg-` or including `mega`/`agency`/`lifetime` -> unlocks **Mega**.
+- Key matching `Z5-OWNER` -> unlocks **Owner Access**.
 
-1. Open **Settings** → **License & Account**
-2. Enter `Z5-OWNER`
-3. Click **Validate**
-4. Badge shows **✓ Owner Access** — all limits lifted
+---
 
-> Works fully offline. No Supabase, no payment needed.
+## 💳 Checkout & Payments (Razorpay)
+
+Payment redirection link configurations are centralized in [`src/constants/index.ts`](file:///c:/Users/bmxz5/Desktop/extension/src/constants/index.ts):
+```typescript
+export const PRO_CHECKOUT_URL = 'https://rzp.io/rzp/mp9UpHn';
+export const MEGA_CHECKOUT_URL = 'https://rzp.io/rzp/qLBP8IQg';
+```
+
+When a free user clicks **Choose Pro** or **Choose Mega** inside the Upgrade Modal, they are redirected to their respective checkout page.
 
 ---
 
 ## 🛠️ Local Development
 
 ```bash
-# Clone and install
-git clone https://github.com/Z5SUS/proposal-rescue.git
-cd proposal-rescue
+# Install dependencies
 npm install
 
-# Build
+# Build the extension
 npm run build
 
 # Load in Chrome
-# chrome://extensions → Developer Mode → Load Unpacked → select dist/
+# Go to: chrome://extensions
+# Turn on: "Developer mode" (top right)
+# Click: "Load unpacked" (top left)
+# Select: The /dist directory of this project
 
-# Watch mode
+# Run watch/dev mode
 npm run dev
 ```
 
-### Scripts
+### Commands
 
 | Command | Description |
 |---|---|
@@ -161,70 +158,44 @@ Live at: `https://proposal-rescue.vercel.app`
 ### `POST /api/validate-license`
 ```json
 // Request
-{ "licenseKey": "Z5-OWNER" }
+{ "licenseKey": "PR-1234-ABCD-5678" }
 
 // Response
-{ "valid": true, "plan": "owner", "message": "License valid — Plan: owner" }
+{ "valid": true, "plan": "pro", "message": "License valid — Plan: pro" }
 ```
 
 ### `POST /api/generate-followup`
 ```json
 // Request
 {
-  "licenseKey": "Z5-OWNER",
+  "licenseKey": "PR-1234-ABCD-5678",
   "threadContext": {
     "subject": "Proposal for Website Redesign",
     "participantName": "John",
     "followUpCount": 0,
-    "lastUserEmailDate": "2024-06-01"
+    "lastUserEmailDate": "2026-06-18T13:30:50Z"
   },
   "tone": "professional"
 }
 
 // Response
-{ "draft": "...", "followUpLabel": "First Follow-Up" }
+{ "draft": "..." }
 ```
 
 ### Required Vercel Environment Variables
-
-Set in **Vercel Dashboard → Project → Settings → Environment Variables**:
-
-| Variable | Value |
-|---|---|
-| `DEEPSEEK_API_KEY` | Your DeepSeek API key |
-| `OWNER_KEYS` | `Z5-OWNER` |
+- `DEEPSEEK_API_KEY`: API key for server-side generation.
+- `OWNER_KEYS`: Comma-separated list of developer owner bypass keys (e.g. `Z5-OWNER`).
 
 ---
 
 ## 🚀 Deployment
 
+Pushing code to the `master` branch auto-deploys the backend serverless endpoints on Vercel:
 ```bash
-# Push to GitHub → Vercel auto-deploys
 git add .
-git commit -m "your message"
+git commit -m "commit message"
 git push origin master
 ```
-
-> ⚠️ `node_modules/` and `dist/` are git-ignored. Never commit them.
-
----
-
-## 🐛 Bugs Fixed
-
-### `validateLicense is not defined` — Settings crash
-- **Cause:** `options/index.tsx` called `validateLicense()` which was never imported.
-- **Fix:** Imported `validateLicenseAPI` from `@/utils/api`. Also added persistence of license state to `chrome.storage.sync` after validation. Fixed plan badge to correctly show `✓ Owner Access`.
-
-### "Show Me How" button removed
-- Removed the button and onboarding modal from the empty dashboard state. Replaced with a plain text instruction.
-
-### Vercel 404 on `/api/*`
-- **Cause:** The `api/` folder was in a separate local directory never committed to the repo.
-- **Fix:** Moved both API files into the repo root. Added `vercel.json` for CORS + build config.
-
-### `vite: Permission denied` (Vercel exit 126)
-- **Cause:** `node_modules/` was committed to Git on Windows. Vercel (Linux) couldn't execute the binary.
-- **Fix:** Added `.gitignore`, ran `git rm -r --cached node_modules`, regenerated `package-lock.json`.
 
 ---
 
@@ -238,17 +209,7 @@ git push origin master
 | Data Persistence | `chrome.storage.sync` |
 | Backend | Vercel Serverless Functions (Node.js / TypeScript) |
 | AI Model | DeepSeek `deepseek-chat` via OpenAI-compatible SDK |
-| Repo + CI/CD | GitHub → Vercel (auto-deploy on push) |
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Supabase — real license key database
-- [ ] Payment integration (Lemon Squeezy / Paddle)
-- [ ] Marketing landing page
-- [ ] Email reminders for overdue threads
-- [ ] Analytics (free → pro conversion)
+| Payment Checkout | Razorpay |
 
 ---
 

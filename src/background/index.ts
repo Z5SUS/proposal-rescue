@@ -7,7 +7,6 @@
  *   - Handle alarms and service worker startups
  */
 
-import type { ExtensionMessage, ExtensionResponse } from '@/types';
 import { updateBadge } from '@/utils/badge';
 
 console.log('[ProposalRescue] Background service worker started');

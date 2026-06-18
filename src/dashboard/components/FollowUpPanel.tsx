@@ -76,9 +76,6 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
     }
   }
 
-  function openSettings(): void {
-    chrome.runtime.openOptionsPage();
-  }
 
   async function handleCopyToClipboard(): Promise<void> {
     try {
@@ -184,7 +181,9 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
           {!loading && draft && canUseAI !== false && (
             <div className="pr-space-y-1.5">
               <div className="pr-flex pr-items-center pr-justify-between pr-px-1">
-                <span className="pr-text-[10px] pr-font-bold pr-text-ink-400 pr-uppercase pr-tracking-wider">AI Draft (Editable)</span>
+                <span className="pr-text-[10px] pr-font-bold pr-text-ink-400 pr-uppercase pr-tracking-wider">
+                  AI Draft (Editable){remainingFreeAIDrafts > 0 ? ` (${remainingFreeAIDrafts} free remaining)` : ''}
+                </span>
                 <span className="pr-text-[10px] pr-text-brand-600 pr-capitalize pr-bg-brand-50 pr-px-1.5 pr-py-0.5 pr-rounded pr-border pr-border-brand-100">
                   {settings.aiTone} Tone
                 </span>

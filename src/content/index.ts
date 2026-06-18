@@ -26,7 +26,7 @@ function init(): void {
   gmailObserver.start();
 
   // Listen for message from dashboard to insert draft or track thread
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === 'INSERT_DRAFT') {
       const result = insertTextIntoGmailCompose(message.text);
       sendResponse(result);

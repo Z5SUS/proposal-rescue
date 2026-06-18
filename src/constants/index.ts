@@ -75,7 +75,10 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
 };
 
 // ─── Plan Display Info (used by upgrade modal) ────────────────────────────────
-// Replace checkoutUrl with real LemonSqueezy / Paddle / Stripe URLs when ready.
+
+export const SOLO_CHECKOUT_URL = 'https://rzp.io/rzp/gJyfbGfM';
+export const AGENCY_CHECKOUT_URL = 'https://rzp.io/rzp/gJyfbGfM';
+export const LIFETIME_CHECKOUT_URL = 'https://rzp.io/rzp/gJyfbGfM';
 
 export interface PlanInfo {
   id: PlanId;
@@ -93,7 +96,7 @@ export const PAID_PLAN_INFO: PlanInfo[] = [
     price: '$9',
     billing: '/month',
     tagline: 'Best for freelancers',
-    checkoutUrl: 'https://proposal-rescue.vercel.app/upgrade?plan=solo',
+    checkoutUrl: SOLO_CHECKOUT_URL,
   },
   {
     id: 'agency',
@@ -101,7 +104,7 @@ export const PAID_PLAN_INFO: PlanInfo[] = [
     price: '$29',
     billing: '/month',
     tagline: 'Best for agencies',
-    checkoutUrl: 'https://proposal-rescue.vercel.app/upgrade?plan=agency',
+    checkoutUrl: AGENCY_CHECKOUT_URL,
   },
   {
     id: 'lifetime',
@@ -109,7 +112,7 @@ export const PAID_PLAN_INFO: PlanInfo[] = [
     price: '$99',
     billing: ' one-time',
     tagline: 'Pay once, use forever',
-    checkoutUrl: 'https://proposal-rescue.vercel.app/upgrade?plan=lifetime',
+    checkoutUrl: LIFETIME_CHECKOUT_URL,
   },
 ];
 

@@ -162,7 +162,7 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
         })
       });
       if (response.ok) {
-        return { valid: true, plan: 'pro' };
+        return { valid: true, plan: 'solo' };
       }
     } catch (e) {
       // try OpenAI next
@@ -182,7 +182,7 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
         })
       });
       if (response.ok) {
-        return { valid: true, plan: 'pro' };
+        return { valid: true, plan: 'solo' };
       }
     } catch (e) {
       // both failed
@@ -213,8 +213,19 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
   }
 
   // Local validation fallback for development
-  if (key.toLowerCase().includes('pro') || key.toLowerCase().startsWith('pr-')) {
-    return { valid: true, plan: 'pro' };
+  const lowerKey = key.toLowerCase();
+  if (lowerKey.startsWith('pr-') || lowerKey.includes('solo')) {
+    return { valid: true, plan: 'solo' };
+  }
+  if (lowerKey.startsWith('ag-') || lowerKey.includes('agency')) {
+    return { valid: true, plan: 'agency' };
+  }
+  if (lowerKey.startsWith('lt-') || lowerKey.includes('lifetime')) {
+    return { valid: true, plan: 'lifetime' };
+  }
+  if (lowerKey.includes('pro')) {
+    // legacy support
+    return { valid: true, plan: 'solo' };
   }
 
   return { valid: false, plan: 'free' };

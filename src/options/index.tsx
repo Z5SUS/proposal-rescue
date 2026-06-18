@@ -4,7 +4,7 @@ import '@/styles/global.css';
 import { getSettings, saveSettings } from '@/utils/storage';
 import { validateLicenseAPI } from '@/utils/api';
 import type { AppSettings, FollowUpInterval, AiTone } from '@/types';
-import { DEFAULT_SETTINGS } from '@/constants';
+
 
 function Options(): React.JSX.Element {
   const [interval, setInterval] = useState<FollowUpInterval>(5);
@@ -49,14 +49,14 @@ function Options(): React.JSX.Element {
     try {
       const result = await validateLicenseAPI(licenseKey.trim());
       setLicenseValid(result.valid);
-      setLicensePlan(result.plan as 'free' | 'pro');
+      setLicensePlan(result.plan as AppSettings['licensePlan']);
       // Persist validated license to storage immediately
       const current = await getSettings();
       await saveSettings({
         ...current,
         licenseKey: licenseKey.trim(),
         licenseValid: result.valid,
-        licensePlan: result.plan as 'free' | 'pro',
+        licensePlan: result.plan as AppSettings['licensePlan'],
       });
       if (result.valid) {
         setValidationSuccess(true);

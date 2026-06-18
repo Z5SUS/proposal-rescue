@@ -276,7 +276,7 @@ function Options(): React.JSX.Element {
 
         {/* Small extension details footer */}
         <p className="pr-text-[10px] pr-text-ink-300 pr-text-center">
-          Proposal Rescue MVP · Version 1.0.0 · Local Storage Only
+          Proposal Rescue · Version 1.0.0
         </p>
       </div>
     </div>

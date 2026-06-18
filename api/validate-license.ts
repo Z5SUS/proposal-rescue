@@ -1,48 +1,87 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 
 // ─── Owner Keys ───────────────────────────────────────────────────────────────
 const OWNER_KEYS = (process.env.OWNER_KEYS ?? 'Z5-OWNER').split(',').map((k) => k.trim());
 
-// ─── License Validation Logic ─────────────────────────────────────────────────
-//
-// Current implementation uses pattern matching.
-// TODO: Replace with a real database lookup (Supabase / Paddle / Lemon Squeezy).
-//
-// Expected license key formats:
-//   Owner  → Z5-OWNER (or any key in OWNER_KEYS env var)
-//   Pro    → PR-XXXX-XXXX-XXXX (16 chars after prefix, uppercase)
-//   Free   → anything else → not valid
+// ─── Supabase Configuration ───────────────────────────────────────────────────
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-function validateLicenseKey(licenseKey: string): { valid: boolean; plan: string } {
+let supabaseClient: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (!supabaseClient) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase environment variables (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) are not set.');
+    }
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  }
+  return supabaseClient;
+}
+
+async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean; plan: string; expiresAt?: string | null }> {
   const key = (licenseKey ?? '').trim();
 
   if (!key) {
     return { valid: false, plan: 'free' };
   }
 
-  // Owner check (internal use)
+  // Owner check (bypasses Supabase query)
   if (OWNER_KEYS.includes(key)) {
     return { valid: true, plan: 'owner' };
   }
 
-  // Mega key pattern: LT-XXXX-XXXX-XXXX, AG-XXXX-XXXX-XXXX, or MG-XXXX-XXXX-XXXX
-  if (/^(lt|ag|mg)-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/i.test(key)) {
-    // TODO: Query DB to confirm the key exists and is active
-    return { valid: true, plan: 'mega' };
-  }
+  try {
+    const supabase = getSupabase();
+    // Query Supabase for the license key
+    const { data: license, error } = await supabase
+      .from('licenses')
+      .select('plan, expires_at, status')
+      .eq('license_key', key)
+      .maybeSingle();
 
-  // Pro key pattern: PR-XXXX-XXXX-XXXX (legacy + new)
-  if (/^pr-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/i.test(key)) {
-    // TODO: Query DB to confirm the key exists and is active
-    return { valid: true, plan: 'pro' };
-  }
+    if (error) {
+      console.error('[validate-license] Database error:', error);
+      throw new Error('Database check failed.');
+    }
 
-  return { valid: false, plan: 'free' };
+    if (!license) {
+      return { valid: false, plan: 'free' };
+    }
+
+    // Check status
+    if (license.status === 'expired' || license.status === 'cancelled') {
+      return { valid: false, plan: 'free' };
+    }
+
+    // Expiry check
+    if (license.expires_at) {
+      const expiry = new Date(license.expires_at);
+      if (Date.now() > expiry.getTime()) {
+        // Automatically mark as expired in DB
+        await supabase
+          .from('licenses')
+          .update({ status: 'expired' })
+          .eq('license_key', key);
+
+        return { valid: false, plan: 'free' };
+      }
+    }
+
+    return {
+      valid: true,
+      plan: license.plan,
+      expiresAt: license.expires_at,
+    };
+  } catch (err: any) {
+    console.error('[validate-license] Unexpected error during verification:', err);
+    return { valid: false, plan: 'free' };
+  }
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -58,11 +97,12 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing required field: licenseKey (string).' });
   }
 
-  const result = validateLicenseKey(licenseKey);
+  const result = await validateLicenseKey(licenseKey);
 
   return res.status(200).json({
     valid: result.valid,
     plan: result.plan,
+    expiresAt: result.expiresAt,
     message: result.valid
       ? `License valid — Plan: ${result.plan}`
       : 'Invalid or unrecognized license key.',

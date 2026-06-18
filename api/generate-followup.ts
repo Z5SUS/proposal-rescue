@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,14 +23,58 @@ const PAID_PLANS = new Set(['pro', 'mega', 'owner']);
 // ─── Owner Keys (same set as extension) ──────────────────────────────────────
 const OWNER_KEYS = (process.env.OWNER_KEYS ?? 'Z5-OWNER').split(',').map((k) => k.trim());
 
-// ─── License Validation (stub — replace with DB lookup later) ─────────────────
-function getPlanForLicense(licenseKey: string): string {
-  if (!licenseKey) return 'free';
-  if (OWNER_KEYS.includes(licenseKey)) return 'owner';
-  // TODO: Query DB for real license validation
-  if (/^(lt|ag|mg)-/i.test(licenseKey)) return 'mega';
-  if (/^pr-/i.test(licenseKey)) return 'pro';
-  return 'free';
+// ─── Supabase Configuration ───────────────────────────────────────────────────
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+let supabaseClient: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (!supabaseClient) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase environment variables (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) are not set.');
+    }
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  }
+  return supabaseClient;
+}
+
+// ─── License Validation ───────────────────────────────────────────────────────
+async function getPlanForLicense(licenseKey: string): Promise<string> {
+  const key = (licenseKey ?? '').trim();
+  if (!key) return 'free';
+  if (OWNER_KEYS.includes(key)) return 'owner';
+
+  try {
+    const supabase = getSupabase();
+    const { data: license, error } = await supabase
+      .from('licenses')
+      .select('plan, expires_at, status')
+      .eq('license_key', key)
+      .maybeSingle();
+
+    if (error || !license) return 'free';
+    if (license.status === 'expired' || license.status === 'cancelled') return 'free';
+
+    // Expiry check
+    if (license.expires_at) {
+      const expiry = new Date(license.expires_at);
+      if (Date.now() > expiry.getTime()) {
+        // Asynchronously mark as expired in DB
+        supabase
+          .from('licenses')
+          .update({ status: 'expired' })
+          .eq('license_key', key)
+          .then(() => {});
+
+        return 'free';
+      }
+    }
+
+    return license.plan;
+  } catch (err) {
+    console.error('[generate-followup] Supabase license retrieval failed:', err);
+    return 'free';
+  }
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -53,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Determine plan
-  const plan = getPlanForLicense(licenseKey);
+  const plan = await getPlanForLicense(licenseKey);
   const isPaid = PAID_PLANS.has(plan);
 
   // Free users: no server-side AI generation (they use the 1 client-side trial)
@@ -102,15 +147,14 @@ Instructions: Do NOT include greetings (like "Dear...", "Hi...") or sign-offs (l
       temperature: 0.7,
     });
 
-    const draft = completion.choices?.[0]?.message?.content?.trim();
+    const draft = completion.choices[0]?.message?.content?.trim();
     if (!draft) {
-      throw new Error('DeepSeek returned an empty response.');
+      return res.status(500).json({ error: 'AI failed to generate a draft.' });
     }
 
-    return res.status(200).json({ draft, followUpLabel });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[generate-followup] DeepSeek error:', message);
-    return res.status(502).json({ error: `AI generation failed: ${message}` });
+    return res.status(200).json({ draft });
+  } catch (err: any) {
+    console.error('[generate-followup] API call failed:', err);
+    return res.status(500).json({ error: 'Failed to generate follow-up draft.', details: err?.message });
   }
 }

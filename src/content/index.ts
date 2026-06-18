@@ -14,7 +14,7 @@ import {
   extractSubject,
   extractParticipant,
 } from '@/utils/gmail';
-import { injectTrackCard, removeTrackCard } from '@/content/trackCard';
+import { injectTrackCard, removeTrackCard, trackCurrentThread } from '@/content/trackCard';
 
 console.log('[ProposalRescue] Content script loaded');
 
@@ -25,11 +25,16 @@ function init(): void {
   gmailObserver.onNavigation(handleNavigation);
   gmailObserver.start();
 
-  // Listen for message from dashboard to insert draft
+  // Listen for message from dashboard to insert draft or track thread
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'INSERT_DRAFT') {
       const result = insertTextIntoGmailCompose(message.text);
       sendResponse(result);
+    } else if (message.action === 'TRACK_CURRENT_THREAD') {
+      trackCurrentThread()
+        .then((res) => sendResponse(res))
+        .catch((err) => sendResponse({ success: false, error: err?.message || 'Failed to track thread' }));
+      return true;
     }
     return true; // Keep communication channel open for response
   });

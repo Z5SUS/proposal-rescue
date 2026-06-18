@@ -43,20 +43,46 @@ export function Dashboard(): React.JSX.Element {
   }
 
   function openGmailToTrack(): void {
-    // The side panel is embedded inside Gmail, so just navigating the
-    // underlying Gmail tab to the inbox is the most reliable action.
-    // The user can then open any thread and see the Track card.
+    // Query ALL tabs in the current window — not just the "active" one,
+    // because from a side panel the active tab can be the panel itself.
     chrome.tabs.query({ currentWindow: true }, (tabs) => {
       const gmailTab = tabs.find((t) => t.url?.includes('mail.google.com'));
       if (gmailTab?.id != null) {
-        // Navigate to inbox so the user can open a thread
-        chrome.tabs.update(gmailTab.id, {
-          url: 'https://mail.google.com/#inbox',
-          active: true,
+        // A Gmail tab already exists — bring it to the front
+        chrome.tabs.update(gmailTab.id, { active: true });
+      } else {
+        // No Gmail tab open — create one
+        chrome.tabs.create({ url: 'https://mail.google.com' });
+      }
+    });
+  }
+
+  function trackProposal(): void {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (tab?.id != null && tab.url?.includes('mail.google.com')) {
+        chrome.tabs.sendMessage(tab.id, { action: 'TRACK_CURRENT_THREAD' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.log('[ProposalRescue] Content script not ready on active Gmail tab:', chrome.runtime.lastError);
+            openGmailToTrack();
+            return;
+          }
+
+          if (response && response.success) {
+            console.log('[ProposalRescue] Thread tracked successfully via dashboard');
+          } else {
+            const err = response?.error;
+            if (err === 'NO_THREAD_OPEN') {
+              alert('Please open an email thread in Gmail to track it.');
+            } else if (err === 'LIMIT_REACHED') {
+              // Handled by content script card update (renderUpgradeNotice)
+            } else {
+              alert(err || 'Failed to track thread.');
+            }
+          }
         });
       } else {
-        // No Gmail tab — open one
-        chrome.tabs.create({ url: 'https://mail.google.com/#inbox' });
+        openGmailToTrack();
       }
     });
   }
@@ -90,7 +116,7 @@ export function Dashboard(): React.JSX.Element {
               Open any email thread in Gmail and click <strong>Track</strong> on the card that appears at the top of the thread.
             </p>
             <button
-              onClick={openGmailToTrack}
+              onClick={trackProposal}
               className="pr-inline-flex pr-items-center pr-gap-1.5 pr-px-5 pr-py-2.5 pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-text-xs pr-font-semibold pr-rounded-lg pr-shadow-sm pr-transition-colors pr-cursor-pointer pr-border-0"
             >
               <svg className="pr-w-3.5 pr-h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

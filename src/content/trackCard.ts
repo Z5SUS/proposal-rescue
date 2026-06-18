@@ -21,6 +21,11 @@ import {
 import { isoInDays } from '@/utils/dates';
 import type { TrackedThread } from '@/types';
 import { canTrackMore } from '@/utils/entitlements';
+import {
+  extractThreadId,
+  extractSubject,
+  extractParticipant,
+} from '@/utils/gmail';
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -59,6 +64,78 @@ export async function injectTrackCard(opts: TrackCardOptions): Promise<void> {
  */
 export function removeTrackCard(): void {
   document.getElementById(TRACK_CARD_ID)?.remove();
+}
+
+/**
+ * Tracks the currently open Gmail thread. Called via message from the dashboard.
+ */
+export async function trackCurrentThread(): Promise<{ success: boolean; error?: string }> {
+  const threadId = extractThreadId();
+  if (!threadId) {
+    return { success: false, error: 'NO_THREAD_OPEN' };
+  }
+
+  // Bypasses onboarding since the user explicitly clicked Track from the dashboard
+  const onboardingDismissed = await getOnboardingDismissed();
+  if (!onboardingDismissed) {
+    await setOnboardingDismissed(true);
+  }
+
+  // Get current metadata
+  const subject = extractSubject();
+  const participant = extractParticipant();
+
+  // Try to find the existing card in DOM, or inject it
+  let card = document.getElementById(TRACK_CARD_ID);
+  if (!card) {
+    await injectTrackCard({
+      threadId,
+      subject,
+      participantName: participant.name,
+      participantEmail: participant.email,
+    });
+    card = document.getElementById(TRACK_CARD_ID);
+  }
+
+  if (!card) {
+    return { success: false, error: 'Could not create tracking card.' };
+  }
+
+  // Check tracking limits before saving
+  const allowed = await canTrackMore();
+  if (!allowed) {
+    renderUpgradeNotice(card);
+    return { success: false, error: 'LIMIT_REACHED' };
+  }
+
+  // If already tracked as active, ensure card shows badge and return success
+  const existing = await getThread(threadId);
+  if (existing && existing.status === 'active') {
+    renderTrackedBadge(card, existing);
+    return { success: true };
+  }
+
+  const settings = await getSettings();
+  const now = new Date().toISOString();
+
+  const thread: TrackedThread = {
+    threadId,
+    subject,
+    participantName: participant.name,
+    participantEmail: participant.email,
+    status: 'active',
+    followUpCount: 0,
+    lastUserEmailDate: now,
+    nextActionDate: isoInDays(settings.followUpIntervalDays),
+    snoozedUntil: null,
+    createdAt: now,
+  };
+
+  await saveThread(thread);
+  renderTrackedBadge(card, thread);
+
+  console.log('[ProposalRescue] ✅ Thread saved via remote command:', thread);
+  return { success: true };
 }
 
 // ─── Card Builders ────────────────────────────────────────────────────────────

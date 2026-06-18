@@ -43,14 +43,15 @@ export function Dashboard(): React.JSX.Element {
   }
 
   function openGmailToTrack(): void {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tab = tabs[0];
-      if (tab?.url?.includes('mail.google.com')) {
-        // Already on Gmail — just close the side panel so the user can
-        // open a thread and see the track card
-        chrome.tabs.update(tab.id!, { active: true });
+    // Query ALL tabs in the current window — not just the "active" one,
+    // because from a side panel the active tab can be the panel itself.
+    chrome.tabs.query({ currentWindow: true }, (tabs) => {
+      const gmailTab = tabs.find((t) => t.url?.includes('mail.google.com'));
+      if (gmailTab?.id != null) {
+        // A Gmail tab already exists — bring it to the front
+        chrome.tabs.update(gmailTab.id, { active: true });
       } else {
-        // Open Gmail in the current tab
+        // No Gmail tab open — create one
         chrome.tabs.create({ url: 'https://mail.google.com' });
       }
     });
@@ -98,29 +99,15 @@ export function Dashboard(): React.JSX.Element {
           <>
             <section>
               <div className="pr-flex pr-items-center pr-justify-between pr-mb-2 pr-px-1">
-                <div className="pr-flex pr-items-center pr-gap-2">
-                  <h2 className="pr-text-xs pr-font-semibold pr-text-ink-500 pr-uppercase pr-tracking-wider">
-                    Needs Action
-                  </h2>
-                  {overdueCount > 0 && (
-                    <span className="pr-text-[10px] pr-font-bold pr-text-brand-600 pr-bg-brand-50 pr-border pr-border-brand-200 pr-rounded-full pr-px-1.5 pr-py-0.5">
-                      {overdueCount} overdue
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={openGmailToTrack}
-                  title="Track a new proposal"
-                  className="pr-flex pr-items-center pr-gap-1 pr-px-2.5 pr-py-1 pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-text-[10px] pr-font-semibold pr-rounded-md pr-transition-colors pr-cursor-pointer pr-border-0"
-                >
-                  <svg className="pr-w-3 pr-h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                  </svg>
-                  New
-                </button>
+                <h2 className="pr-text-xs pr-font-semibold pr-text-ink-500 pr-uppercase pr-tracking-wider">
+                  Needs Action
+                </h2>
+                {overdueCount > 0 && (
+                  <span className="pr-text-[10px] pr-font-bold pr-text-brand-600 pr-bg-brand-50 pr-border pr-border-brand-200 pr-rounded-full pr-px-1.5 pr-py-0.5">
+                    {overdueCount} overdue
+                  </span>
+                )}
               </div>
-
-
               {active.length === 0 ? (
                 <EmptyState section="action" />
               ) : (

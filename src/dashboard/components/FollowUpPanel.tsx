@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import type { TrackedThread } from '@/types';
 import { useSettings } from '@/hooks/useSettings';
-import { canUseAIDraft, getRemainingFreeAIDrafts } from '@/utils/entitlements';
+import { canUseAIDraft, getRemainingFreeAIDrafts, isProUser } from '@/utils/entitlements';
 import { incrementAIDraftsUsed } from '@/utils/storage';
 import { generateFollowUpAPI } from '@/utils/api';
+import { UpgradeModal } from './UpgradeModal';
 
 interface FollowUpPanelProps {
   thread: TrackedThread;
@@ -19,6 +20,7 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
   const [isInserted, setIsInserted] = useState(false);
   const [canUseAI, setCanUseAI] = useState<boolean | null>(null);
   const [remainingFreeAIDrafts, setRemainingFreeAIDrafts] = useState<number>(0);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Check limits and auto-generate on mount
   useEffect(() => {
@@ -60,9 +62,9 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
       });
       setDraft(result);
 
-      // Increment drafts used if free tier
-      const isPro = settings.licenseValid && settings.licensePlan === 'pro';
-      if (!isPro) {
+      // Increment drafts used only for free tier
+      const paid = await isProUser();
+      if (!paid) {
         await incrementAIDraftsUsed();
         const remaining = await getRemainingFreeAIDrafts();
         setRemainingFreeAIDrafts(remaining);
@@ -152,13 +154,13 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
             <div className="pr-flex pr-flex-col pr-items-center pr-justify-center pr-py-8 pr-px-4 pr-text-center pr-bg-surface-50 pr-rounded-lg pr-border pr-border-surface-200">
               <span className="pr-text-2xl pr-mb-2">✨</span>
               <p className="pr-text-xs pr-text-ink-700 pr-font-medium pr-mb-3 pr-leading-relaxed">
-                You've used your free AI follow-up. Upgrade to Proposal Rescue Pro for unlimited AI-powered follow-ups.
+                You've used your free AI follow-up trial. Upgrade to keep sending AI-powered follow-ups.
               </p>
               <button
-                onClick={openSettings}
+                onClick={() => setShowUpgradeModal(true)}
                 className="pr-px-4 pr-py-2 pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-text-xs pr-font-semibold pr-rounded-lg pr-shadow-sm pr-transition-colors pr-cursor-pointer pr-border-0"
               >
-                Upgrade to Pro
+                View Plans
               </button>
             </div>
           )}
@@ -238,6 +240,11 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
           </div>
         )}
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
+      )}
     </div>
   );
 }

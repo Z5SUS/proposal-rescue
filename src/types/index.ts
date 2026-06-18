@@ -38,7 +38,7 @@ export interface AppSettings {
   openAiApiKey: string;
   licenseKey: string;
   licenseValid: boolean;
-  licensePlan: 'free' | 'pro' | 'owner';
+  licensePlan: 'free' | 'solo' | 'agency' | 'lifetime' | 'owner';
 }
 
 // ─── Storage Schema ───────────────────────────────────────────────────────────

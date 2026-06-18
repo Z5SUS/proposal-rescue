@@ -18,6 +18,101 @@ export const DEFAULT_SETTINGS: AppSettings = {
   licensePlan: 'free',
 };
 
+// ─── Plan Limits (single source of truth — never hardcode in components) ──────
+
+export type PlanId = 'free' | 'solo' | 'agency' | 'lifetime' | 'owner';
+
+export interface PlanLimits {
+  maxThreads: number;   // Infinity = unlimited
+  aiDrafts: number;     // Infinity = unlimited
+  unlimited: boolean;   // true for all paid plans
+  multiAccountSupport: boolean; // reserved for agency/lifetime
+  teamDashboard: boolean;       // reserved for agency/lifetime
+  advancedSequences: boolean;   // reserved for agency/lifetime
+}
+
+export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
+  free: {
+    maxThreads: 5,
+    aiDrafts: 1,
+    unlimited: false,
+    multiAccountSupport: false,
+    teamDashboard: false,
+    advancedSequences: false,
+  },
+  solo: {
+    maxThreads: Infinity,
+    aiDrafts: Infinity,
+    unlimited: true,
+    multiAccountSupport: false,
+    teamDashboard: false,
+    advancedSequences: false,
+  },
+  agency: {
+    maxThreads: Infinity,
+    aiDrafts: Infinity,
+    unlimited: true,
+    multiAccountSupport: true,  // reserved — not yet implemented
+    teamDashboard: true,         // reserved — not yet implemented
+    advancedSequences: true,     // reserved — not yet implemented
+  },
+  lifetime: {
+    maxThreads: Infinity,
+    aiDrafts: Infinity,
+    unlimited: true,
+    multiAccountSupport: true,  // reserved — not yet implemented
+    teamDashboard: true,         // reserved — not yet implemented
+    advancedSequences: true,     // reserved — not yet implemented
+  },
+  owner: {
+    maxThreads: Infinity,
+    aiDrafts: Infinity,
+    unlimited: true,
+    multiAccountSupport: true,
+    teamDashboard: true,
+    advancedSequences: true,
+  },
+};
+
+// ─── Plan Display Info (used by upgrade modal) ────────────────────────────────
+// Replace checkoutUrl with real LemonSqueezy / Paddle / Stripe URLs when ready.
+
+export interface PlanInfo {
+  id: PlanId;
+  label: string;
+  price: string;
+  billing: string;
+  tagline: string;
+  checkoutUrl: string;
+}
+
+export const PAID_PLAN_INFO: PlanInfo[] = [
+  {
+    id: 'solo',
+    label: 'Solo',
+    price: '$9',
+    billing: '/month',
+    tagline: 'Best for freelancers',
+    checkoutUrl: 'https://proposal-rescue.vercel.app/upgrade?plan=solo',
+  },
+  {
+    id: 'agency',
+    label: 'Agency',
+    price: '$29',
+    billing: '/month',
+    tagline: 'Best for agencies',
+    checkoutUrl: 'https://proposal-rescue.vercel.app/upgrade?plan=agency',
+  },
+  {
+    id: 'lifetime',
+    label: 'Lifetime',
+    price: '$99',
+    billing: ' one-time',
+    tagline: 'Pay once, use forever',
+    checkoutUrl: 'https://proposal-rescue.vercel.app/upgrade?plan=lifetime',
+  },
+];
+
 // ─── Snooze Durations ─────────────────────────────────────────────────────────
 
 export const SNOOZE_OPTIONS = [
@@ -76,3 +171,5 @@ export const API_BASE_URL = 'https://proposal-rescue.vercel.app/api';
 export const UPGRADE_URL = 'https://proposal-rescue.vercel.app/upgrade';
 
 export const OWNER_KEYS = ['Z5-OWNER'];
+
+

@@ -11,7 +11,7 @@ function Options(): React.JSX.Element {
   const [tone, setTone] = useState<AiTone>('professional');
   const [licenseKey, setLicenseKeyState] = useState('');
   const [licenseValid, setLicenseValid] = useState(false);
-  const [licensePlan, setLicensePlan] = useState<'free' | 'pro'>('free');
+  const [licensePlan, setLicensePlan] = useState<'free' | 'solo' | 'agency' | 'lifetime' | 'owner'>('free');
   const [validating, setValidating] = useState(false);
   const [validationSuccess, setValidationSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -158,16 +158,20 @@ function Options(): React.JSX.Element {
               <span className="pr-text-[10px] pr-text-ink-400">Current Plan:</span>
               <span
                 className={`pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase ${
-                licenseValid && (licensePlan === 'pro' || licensePlan === 'owner')
+                licenseValid && licensePlan !== 'free'
                   ? 'pr-bg-green-50 pr-text-success pr-border pr-border-green-200'
                   : 'pr-bg-surface-100 pr-text-ink-500'
               }`}
             >
               {licenseValid && licensePlan === 'owner'
                 ? '✓ Owner Access'
-                : licenseValid && licensePlan === 'pro'
-                ? '✓ Pro Active'
-                : 'Free Trial'}
+                : licenseValid && licensePlan === 'lifetime'
+                ? '✓ Lifetime'
+                : licenseValid && licensePlan === 'agency'
+                ? '✓ Agency Plan'
+                : licenseValid && licensePlan === 'solo'
+                ? '✓ Solo Plan'
+                : 'Free Plan'}
               </span>
             </div>
 

@@ -37,8 +37,13 @@ export async function getSettings(): Promise<AppSettings> {
   const result = await syncGet([STORAGE_KEYS.SETTINGS]);
   const settings = result.settings ?? DEFAULT_SETTINGS;
 
-  // Backward compatibility: default plan to 'free' if missing or invalid
-  if (!settings.licensePlan || !['free', 'pro', 'owner'].includes(settings.licensePlan)) {
+  // Backward compatibility:
+  //   • Old 'pro' keys → migrate to 'solo' at read-time
+  //   • Unknown values  → fall back to 'free'
+  const VALID_PLANS = ['free', 'solo', 'agency', 'lifetime', 'owner'] as const;
+  if (settings.licensePlan === ('pro' as string)) {
+    settings.licensePlan = 'solo';
+  } else if (!settings.licensePlan || !(VALID_PLANS as readonly string[]).includes(settings.licensePlan)) {
     settings.licensePlan = 'free';
   }
   if (settings.licenseValid === undefined) {
@@ -153,7 +158,7 @@ export async function validateLicense(key: string): Promise<{ valid: boolean; pl
     const settings = await getSettings();
     settings.licenseKey = key.trim();
     settings.licenseValid = result.valid;
-    settings.licensePlan = result.plan as 'free' | 'pro';
+    settings.licensePlan = result.plan as 'free' | 'solo' | 'agency' | 'lifetime' | 'owner';
     await saveSettings(settings);
     return result;
   } catch (err) {

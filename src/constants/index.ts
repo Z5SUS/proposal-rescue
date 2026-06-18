@@ -48,8 +48,8 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
 
 // ─── Plan Display Info (used by upgrade modal) ────────────────────────────────
 
-export const PRO_CHECKOUT_URL = '';
-export const MEGA_CHECKOUT_URL = '';
+export const PRO_CHECKOUT_URL = 'https://rzp.io/rzp/mp9UpHn';
+export const MEGA_CHECKOUT_URL = 'https://rzp.io/rzp/qLBP8IQg';
 
 export interface PlanInfo {
   id: PlanId;

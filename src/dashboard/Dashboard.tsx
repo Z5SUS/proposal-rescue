@@ -42,6 +42,20 @@ export function Dashboard(): React.JSX.Element {
     });
   }
 
+  function openGmailToTrack(): void {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (tab?.url?.includes('mail.google.com')) {
+        // Already on Gmail — just close the side panel so the user can
+        // open a thread and see the track card
+        chrome.tabs.update(tab.id!, { active: true });
+      } else {
+        // Open Gmail in the current tab
+        chrome.tabs.create({ url: 'https://mail.google.com' });
+      }
+    });
+  }
+
   if (loading) {
     return (
       <div className="pr-min-h-screen pr-bg-surface-50 pr-flex pr-flex-col">
@@ -67,23 +81,45 @@ export function Dashboard(): React.JSX.Element {
               <span className="pr-text-3xl">🚀</span>
             </div>
             <h3 className="pr-text-sm pr-font-bold pr-text-ink-900 pr-mb-2">Track Your First Proposal</h3>
-            <p className="pr-text-xs pr-text-ink-500 pr-leading-relaxed pr-max-w-xs pr-mx-auto">
+            <p className="pr-text-xs pr-text-ink-500 pr-leading-relaxed pr-max-w-xs pr-mx-auto pr-mb-5">
               Open any email thread in Gmail and click <strong>Track</strong> on the card that appears at the top of the thread.
             </p>
+            <button
+              onClick={openGmailToTrack}
+              className="pr-inline-flex pr-items-center pr-gap-1.5 pr-px-5 pr-py-2.5 pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-text-xs pr-font-semibold pr-rounded-lg pr-shadow-sm pr-transition-colors pr-cursor-pointer pr-border-0"
+            >
+              <svg className="pr-w-3.5 pr-h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Track a Proposal
+            </button>
           </div>
         ) : (
           <>
             <section>
               <div className="pr-flex pr-items-center pr-justify-between pr-mb-2 pr-px-1">
-                <h2 className="pr-text-xs pr-font-semibold pr-text-ink-500 pr-uppercase pr-tracking-wider">
-                  Needs Action
-                </h2>
-                {overdueCount > 0 && (
-                  <span className="pr-text-[10px] pr-font-bold pr-text-brand-600 pr-bg-brand-50 pr-border pr-border-brand-200 pr-rounded-full pr-px-1.5 pr-py-0.5">
-                    {overdueCount} overdue
-                  </span>
-                )}
+                <div className="pr-flex pr-items-center pr-gap-2">
+                  <h2 className="pr-text-xs pr-font-semibold pr-text-ink-500 pr-uppercase pr-tracking-wider">
+                    Needs Action
+                  </h2>
+                  {overdueCount > 0 && (
+                    <span className="pr-text-[10px] pr-font-bold pr-text-brand-600 pr-bg-brand-50 pr-border pr-border-brand-200 pr-rounded-full pr-px-1.5 pr-py-0.5">
+                      {overdueCount} overdue
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={openGmailToTrack}
+                  title="Track a new proposal"
+                  className="pr-flex pr-items-center pr-gap-1 pr-px-2.5 pr-py-1 pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-text-[10px] pr-font-semibold pr-rounded-md pr-transition-colors pr-cursor-pointer pr-border-0"
+                >
+                  <svg className="pr-w-3 pr-h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  New
+                </button>
               </div>
+
 
               {active.length === 0 ? (
                 <EmptyState section="action" />

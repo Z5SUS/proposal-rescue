@@ -36,6 +36,7 @@ export function Dashboard(): React.JSX.Element {
   const [archivedOpen, setArchivedOpen] = useState(false);
   const settings = useSettings();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const isUpgraded = settings.licenseValid && (settings.licensePlan === 'pro' || settings.licensePlan === 'mega');
   const showUpgradeButton = !settings.licenseValid || settings.licensePlan === 'free';
 
   function viewThread(threadId: string): void {
@@ -144,12 +145,14 @@ export function Dashboard(): React.JSX.Element {
                     </span>
                   )}
                 </div>
-                {showUpgradeButton && (
+                {(showUpgradeButton || isUpgraded) && (
                   <button
                     onClick={() => setShowUpgradeModal(true)}
-                    className="pr-flex pr-items-center pr-gap-1 pr-px-2.5 pr-py-1 pr-bg-amber-500 hover:pr-bg-amber-600 pr-text-white pr-text-[10px] pr-font-bold pr-rounded-md pr-transition-colors pr-cursor-pointer pr-border-0 pr-uppercase pr-tracking-wider pr-shadow-sm"
+                    className={`pr-flex pr-items-center pr-gap-1 pr-px-2.5 pr-py-1 pr-text-white pr-text-[10px] pr-font-bold pr-rounded-md pr-transition-colors pr-cursor-pointer pr-border-0 pr-uppercase pr-tracking-wider pr-shadow-sm ${
+                      isUpgraded ? 'pr-bg-brand-600 hover:pr-bg-brand-700' : 'pr-bg-amber-500 hover:pr-bg-amber-600'
+                    }`}
                   >
-                    Upgrade
+                    {isUpgraded ? 'Change Plan' : 'Upgrade'}
                   </button>
                 )}
               </div>

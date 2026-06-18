@@ -99,10 +99,15 @@ export function UpgradeModal({ onClose }: UpgradeModalProps): React.JSX.Element 
               </li>
             </ul>
             <button
+              disabled={currentPlan === 'pro'}
               onClick={() => handleChoosePlan(PRO_CHECKOUT_URL)}
-              className="pr-w-full pr-mt-4 pr-py-2 pr-px-4 pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-text-xs pr-font-semibold pr-rounded-lg pr-transition-colors pr-cursor-pointer pr-border-0"
+              className={`pr-w-full pr-mt-4 pr-py-2 pr-px-4 pr-text-xs pr-font-semibold pr-rounded-lg pr-transition-colors pr-border-0 ${
+                currentPlan === 'pro'
+                  ? 'pr-bg-surface-200 pr-text-ink-400 pr-cursor-not-allowed'
+                  : 'pr-bg-brand-600 hover:pr-bg-brand-700 pr-text-white pr-cursor-pointer'
+              }`}
             >
-              Choose Pro
+              {currentPlan === 'pro' ? 'Current Plan' : 'Choose Pro'}
             </button>
           </div>
 
@@ -137,10 +142,15 @@ export function UpgradeModal({ onClose }: UpgradeModalProps): React.JSX.Element 
               </li>
             </ul>
             <button
+              disabled={currentPlan === 'mega'}
               onClick={() => handleChoosePlan(MEGA_CHECKOUT_URL)}
-              className="pr-w-full pr-mt-4 pr-py-2 pr-px-4 pr-bg-amber-500 hover:pr-bg-amber-600 pr-text-white pr-text-xs pr-font-semibold pr-rounded-lg pr-transition-colors pr-cursor-pointer pr-border-0"
+              className={`pr-w-full pr-mt-4 pr-py-2 pr-px-4 pr-text-xs pr-font-semibold pr-rounded-lg pr-transition-colors pr-border-0 ${
+                currentPlan === 'mega'
+                  ? 'pr-bg-surface-200 pr-text-ink-400 pr-cursor-not-allowed'
+                  : 'pr-bg-amber-500 hover:pr-bg-amber-600 pr-text-white pr-cursor-pointer'
+              }`}
             >
-              Choose Mega
+              {currentPlan === 'mega' ? 'Current Plan' : 'Choose Mega'}
             </button>
           </div>
         </div>

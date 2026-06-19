@@ -12,6 +12,7 @@ function Options(): React.JSX.Element {
   const [licenseKey, setLicenseKeyState] = useState('');
   const [licenseValid, setLicenseValid] = useState(false);
   const [licensePlan, setLicensePlan] = useState<'free' | 'pro' | 'mega' | 'owner'>('free');
+  const [licenseStatus, setLicenseStatus] = useState<'active' | 'expired' | 'invalid' | 'free'>('free');
   const [validating, setValidating] = useState(false);
   const [validationSuccess, setValidationSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -28,6 +29,7 @@ function Options(): React.JSX.Element {
         setLicenseKeyState(settings.licenseKey || '');
         setLicenseValid(settings.licenseValid || false);
         setLicensePlan(settings.licensePlan || 'free');
+        setLicenseStatus(settings.licenseStatus || 'free');
       })
       .catch((err) => {
         setError('Failed to load settings from storage.');
@@ -50,6 +52,17 @@ function Options(): React.JSX.Element {
       const result = await validateLicenseAPI(licenseKey.trim());
       setLicenseValid(result.valid);
       setLicensePlan(result.plan as AppSettings['licensePlan']);
+      
+      let status: 'active' | 'expired' | 'invalid' | 'free' = 'free';
+      if (result.valid) {
+        status = 'active';
+      } else if (result.message === 'License expired') {
+        status = 'expired';
+      } else if (licenseKey.trim()) {
+        status = 'invalid';
+      }
+      setLicenseStatus(status);
+
       // Persist validated license to storage immediately
       const current = await getSettings();
       await saveSettings({
@@ -57,6 +70,7 @@ function Options(): React.JSX.Element {
         licenseKey: licenseKey.trim(),
         licenseValid: result.valid,
         licensePlan: result.plan as AppSettings['licensePlan'],
+        licenseStatus: status,
       });
       if (result.valid) {
         setValidationSuccess(true);
@@ -68,6 +82,7 @@ function Options(): React.JSX.Element {
       setError(err?.message || 'Failed to validate license.');
       setLicenseValid(false);
       setLicensePlan('free');
+      setLicenseStatus(licenseKey.trim() ? 'invalid' : 'free');
     } finally {
       setValidating(false);
     }
@@ -156,21 +171,31 @@ function Options(): React.JSX.Element {
             {/* Plan Badge / Status */}
             <div className="pr-flex pr-items-center pr-justify-between pr-mt-2 pr-pt-1">
               <span className="pr-text-[10px] pr-text-ink-400">Current Plan:</span>
-              <span
-                className={`pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase ${
-                licenseValid && licensePlan !== 'free'
-                  ? 'pr-bg-green-50 pr-text-success pr-border pr-border-green-200'
-                  : 'pr-bg-surface-100 pr-text-ink-500'
-              }`}
-            >
-              {licenseValid && licensePlan === 'owner'
-                ? '✓ Owner Access'
-                : licenseValid && licensePlan === 'mega'
-                ? '✓ Mega Plan'
-                : licenseValid && licensePlan === 'pro'
-                ? '✓ Pro Plan'
-                : 'Free Plan'}
-              </span>
+              {licenseValid && licensePlan === 'owner' ? (
+                <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-green-50 pr-text-success pr-border pr-border-green-200">
+                  Owner Active
+                </span>
+              ) : licenseValid && licensePlan === 'mega' ? (
+                <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-amber-50 pr-text-amber-600 pr-border pr-border-amber-200">
+                  Mega Active
+                </span>
+              ) : licenseValid && licensePlan === 'pro' ? (
+                <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-green-50 pr-text-success pr-border pr-border-green-200">
+                  Pro Active
+                </span>
+              ) : licenseStatus === 'expired' ? (
+                <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-red-50 pr-text-danger pr-border pr-border-red-200">
+                  Expired License
+                </span>
+              ) : licenseStatus === 'invalid' ? (
+                <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-red-50 pr-text-danger pr-border pr-border-red-200">
+                  Invalid License
+                </span>
+              ) : (
+                <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-surface-100 pr-text-ink-500">
+                  Free Plan
+                </span>
+              )}
             </div>
 
             {validationSuccess && (

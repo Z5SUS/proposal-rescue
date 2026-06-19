@@ -150,11 +150,8 @@ export function FollowUpPanel({ thread, onClose }: FollowUpPanelProps): React.JS
           {canUseAI === false && (
             <div className="pr-flex pr-flex-col pr-items-center pr-justify-center pr-py-8 pr-px-4 pr-text-center pr-bg-surface-50 pr-rounded-lg pr-border pr-border-surface-200">
               <span className="pr-text-2xl pr-mb-2">✨</span>
-              <p className="pr-text-xs pr-text-ink-700 pr-font-medium pr-mb-1 pr-leading-relaxed">
-                AI Follow-Ups are a premium feature.
-              </p>
-              <p className="pr-text-[11px] pr-text-ink-500 pr-mb-4 pr-leading-relaxed">
-                Upgrade to generate personalized follow-up emails instantly.
+              <p className="pr-text-xs pr-text-ink-700 pr-font-medium pr-mb-4 pr-leading-relaxed">
+                AI Follow-Ups require Pro or Mega.
               </p>
               <button
                 onClick={() => setShowUpgradeModal(true)}

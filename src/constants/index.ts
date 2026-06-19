@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   licenseKey: '',
   licenseValid: false,
   licensePlan: 'free',
+  licenseStatus: 'free',
 };
 
 // ─── Plan Limits (single source of truth — never hardcode in components) ──────

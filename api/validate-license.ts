@@ -72,6 +72,7 @@ async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean;
       valid: true,
       plan: license.plan,
       expiresAt: license.expires_at,
+      status: 'active',
       message: 'License valid',
     };
   } catch (err: any) {

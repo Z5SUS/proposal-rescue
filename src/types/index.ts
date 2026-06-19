@@ -39,6 +39,7 @@ export interface AppSettings {
   licenseKey: string;
   licenseValid: boolean;
   licensePlan: 'free' | 'pro' | 'mega' | 'owner';
+  licenseStatus?: 'active' | 'expired' | 'invalid' | 'free';
 }
 
 // ─── Storage Schema ───────────────────────────────────────────────────────────

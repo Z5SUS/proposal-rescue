@@ -105,8 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only paid / owner keys get unlimited server-side generation
   if (!isPaid) {
     return res.status(403).json({
-      error: 'AI generation requires a Proposal Rescue Pro license.',
-      upgrade_url: 'https://proposal-rescue.vercel.app/upgrade',
+      error: 'AI follow-ups require a paid plan.',
     });
   }
 

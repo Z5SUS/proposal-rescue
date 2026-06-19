@@ -19,7 +19,7 @@ function getSupabase(): any {
   return supabaseClient;
 }
 
-async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean; plan: string; expiresAt?: string | null; message?: string }> {
+async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean; plan: string; expiresAt?: string | null; status?: string; message?: string }> {
   const key = (licenseKey ?? '').trim();
 
   if (!key) {

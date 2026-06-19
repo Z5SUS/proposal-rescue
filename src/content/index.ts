@@ -15,12 +15,14 @@ import {
   extractParticipant,
 } from '@/utils/gmail';
 import { injectTrackCard, removeTrackCard, trackCurrentThread } from '@/content/trackCard';
+import { isContextValid } from '@/utils/storage';
 
 console.log('[ProposalRescue] Content script loaded');
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
 function init(): void {
+  if (!isContextValid()) return;
   chrome.runtime.sendMessage({ type: 'GMAIL_LOADED' }).catch(() => {});
   gmailObserver.onNavigation(handleNavigation);
   gmailObserver.start();
@@ -128,6 +130,10 @@ function showToast(message: string): void {
 // ─── Navigation Handler ───────────────────────────────────────────────────────
 
 function handleNavigation(threadId: string | null): void {
+  if (!isContextValid()) {
+    gmailObserver.stop();
+    return;
+  }
   removeTrackCard();
 
   const hash = window.location.hash;

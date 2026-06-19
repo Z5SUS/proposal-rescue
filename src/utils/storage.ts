@@ -3,11 +3,26 @@ import { DEFAULT_SETTINGS, STORAGE_KEYS } from '@/constants';
 
 // ─── Low-level helpers ────────────────────────────────────────────────────────
 
+/** Helper to check if the extension context is still valid */
+export function isContextValid(): boolean {
+  return (
+    typeof chrome !== 'undefined' &&
+    typeof chrome.runtime !== 'undefined' &&
+    !!chrome.runtime.id &&
+    typeof chrome.storage !== 'undefined' &&
+    typeof chrome.storage.sync !== 'undefined'
+  );
+}
+
 /** Read one or more keys from chrome.storage.sync */
 function syncGet<K extends keyof StorageSchema>(
   keys: K[],
 ): Promise<Pick<StorageSchema, K>> {
   return new Promise((resolve, reject) => {
+    if (!isContextValid()) {
+      resolve({} as Pick<StorageSchema, K>);
+      return;
+    }
     chrome.storage.sync.get(keys, (result) => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
@@ -21,6 +36,10 @@ function syncGet<K extends keyof StorageSchema>(
 /** Write a partial update to chrome.storage.sync */
 function syncSet(items: Partial<StorageSchema>): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (!isContextValid()) {
+      resolve();
+      return;
+    }
     chrome.storage.sync.set(items, () => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
@@ -176,6 +195,7 @@ export async function validateLicense(key: string): Promise<{ valid: boolean; pl
 }
 
 export async function getAIDraftsUsed(): Promise<number> {
+  if (!isContextValid()) return 0;
   const result = await new Promise<any>((resolve) => {
     chrome.storage.sync.get('aiDraftsUsed', (res) => resolve(res));
   });
@@ -183,6 +203,7 @@ export async function getAIDraftsUsed(): Promise<number> {
 }
 
 export async function incrementAIDraftsUsed(): Promise<number> {
+  if (!isContextValid()) return 0;
   const current = await getAIDraftsUsed();
   const updated = current + 1;
   await new Promise<void>((resolve) => {
@@ -192,6 +213,7 @@ export async function incrementAIDraftsUsed(): Promise<number> {
 }
 
 export async function getOnboardingDismissed(): Promise<boolean> {
+  if (!isContextValid()) return false;
   const result = await new Promise<any>((resolve) => {
     chrome.storage.sync.get('onboardingDismissed', (res) => resolve(res));
   });
@@ -199,6 +221,7 @@ export async function getOnboardingDismissed(): Promise<boolean> {
 }
 
 export async function setOnboardingDismissed(dismissed: boolean): Promise<void> {
+  if (!isContextValid()) return;
   await new Promise<void>((resolve) => {
     chrome.storage.sync.set({ onboardingDismissed: dismissed }, () => resolve());
   });

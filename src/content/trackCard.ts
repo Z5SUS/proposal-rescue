@@ -17,6 +17,7 @@ import {
   getSettings,
   getOnboardingDismissed,
   setOnboardingDismissed,
+  isContextValid,
 } from '@/utils/storage';
 import { isoInDays } from '@/utils/dates';
 import type { TrackedThread } from '@/types';
@@ -41,6 +42,7 @@ export interface TrackCardOptions {
  * Safe to call multiple times — checks for existing card first.
  */
 export async function injectTrackCard(opts: TrackCardOptions): Promise<void> {
+  if (!isContextValid()) return;
   // Avoid duplicate injection
   if (document.getElementById(TRACK_CARD_ID)) return;
 
@@ -70,6 +72,9 @@ export function removeTrackCard(): void {
  * Tracks the currently open Gmail thread. Called via message from the dashboard.
  */
 export async function trackCurrentThread(): Promise<{ success: boolean; error?: string }> {
+  if (!isContextValid()) {
+    return { success: false, error: 'Extension context invalidated. Please refresh the page.' };
+  }
   const threadId = extractThreadId();
   if (!threadId) {
     return { success: false, error: 'NO_THREAD_OPEN' };
@@ -300,6 +305,7 @@ function renderUpgradeNotice(card: HTMLElement): void {
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
 async function handleTrack(card: HTMLElement, opts: TrackCardOptions): Promise<void> {
+  if (!isContextValid()) return;
   try {
     // Check tracking limits before saving
     const allowed = await canTrackMore();

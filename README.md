@@ -11,9 +11,12 @@ A Chrome Extension that lives inside Gmail, tracks your proposal email threads, 
 ```
 proposal-rescue/                     ← Single GitHub repo (Z5SUS/proposal-rescue)
 │
+├── .agents/                         ← Agent skills configuration (Supabase, etc.)
+│
 ├── api/                             ← Vercel Serverless Backend
-│   ├── generate-followup.ts         ← POST /api/generate-followup
-│   └── validate-license.ts          ← POST /api/validate-license
+│   ├── generate-followup.ts         ← POST /api/generate-followup (Verifies license via DB)
+│   ├── razorpay-webhook.ts          ← POST /api/razorpay-webhook (Processes payments, generates keys)
+│   └── validate-license.ts          ← POST /api/validate-license (Verifies keys via DB)
 │
 ├── src/                             ← Chrome Extension source
 │   ├── background/index.ts          ← Service worker: badge updates, alarms
@@ -32,7 +35,8 @@ proposal-rescue/                     ← Single GitHub repo (Z5SUS/proposal-resc
 │       └── storage.ts               ← chrome.storage.sync helpers
 │
 ├── public/manifest.json             ← Chrome Manifest V3
-├── vercel.json                      ← Vercel: CORS headers, skip vite build
+├── schema.sql                       ← Database schema definitions for Supabase
+├── vercel.json                      ← Vercel: CORS headers, routes config
 ├── package.json
 ├── vite.config.ts                   ← Builds pages + background
 └── vite.content.config.ts           ← Builds content script as IIFE
@@ -58,8 +62,8 @@ proposal-rescue/                     ← Single GitHub repo (Z5SUS/proposal-resc
 | Feature | Free ($0) | Pro ($29/mo) | Mega ($79/yr) | Owner (Z5-OWNER) |
 |---|---|---|---|---|
 | Active tracked threads | Max **3** | **Unlimited** | **Unlimited** | **Unlimited** |
-| AI follow-up drafts | ❌ | **Unlimited** | **Unlimited** | **Unlimited** |
-| Tone selection | ❌ | ✅ | ✅ | ✅ |
+| AI follow-up drafts | ❌ (Blocked) | **Unlimited** | **Unlimited** | **Unlimited** |
+| Tone selection | ❌ (Blocked) | ✅ | ✅ | ✅ |
 | Dashboard + Snooze + Won/Lost | ✅ | ✅ | ✅ | ✅ |
 | Support & Extras | Standard | Standard | **Priority Support** & **Early Access** | Standard |
 
@@ -68,26 +72,19 @@ proposal-rescue/                     ← Single GitHub repo (Z5SUS/proposal-resc
 ## 🏗️ Architecture
 
 ```
-Chrome Extension
-       ↓ HTTPS
-Vercel Serverless (proposal-rescue.vercel.app/api)
-  POST /api/validate-license
-  POST /api/generate-followup
-       ↓
-DeepSeek API (deepseek-chat)
+         Chrome Extension
+                ↓ HTTPS
+  Vercel Serverless (proposal-rescue.vercel.app/api)
+    ├── POST /api/validate-license ────➔ [ Supabase Database ] (Licenses)
+    ├── POST /api/razorpay-webhook ────➔ [ Supabase Database ] (Logs payments & active keys)
+    └── POST /api/generate-followup ───➔ [ DeepSeek API ] (gpt-compatible)
 ```
 
-### AI Generation Routing
-
-```
-User clicks "Generate Draft"
-  ↓
-licenseKey starts with "sk-"?
-  YES → direct OpenAI/DeepSeek call (client-side) using user's key
-  NO  → POST /api/generate-followup (Vercel)
-          Owner/Pro/Mega key → server-side DeepSeek → draft returned
-          Free key           → 403 → upgrade prompt shown
-```
+### AI Generation Routing & Security
+1. When a user clicks **Generate Draft**, the extension calls `POST /api/generate-followup`.
+2. The server-side backend queries the Supabase `licenses` table.
+3. If the license key is valid (active status, not expired, plan is `pro`, `mega`, or `owner`), the backend forwards the prompt to DeepSeek and returns the draft.
+4. If the key is invalid/expired, the backend returns a `403` status, prompting the client to upgrade.
 
 ---
 
@@ -97,26 +94,42 @@ licenseKey starts with "sk-"?
 |---|---|---|
 | **Free** | No key | Max 3 active threads, no AI follow-ups |
 | **Pro** | `PR-XXXX-XXXX-XXXX` | Unlimited tracking & AI |
-| **Mega** | `LT-`/`AG-`/`MG-XXXX-XXXX-XXXX` | Unlimited tracking & AI + Mega features |
-| **Owner** | `Z5-OWNER` (or OWNER_KEYS list) | Unlimited — personal developer bypass |
+| **Mega** | `MG-XXXX-XXXX-XXXX` | Unlimited tracking & AI + Mega features |
+| **Owner** | `Z5-OWNER` (or custom OWNER_KEYS) | Unlimited — personal developer bypass |
 
 ### Local Dev License Codes
 The extension has local offline validation fallbacks to simplify development:
-- Key prefix `pr-` or including `solo` -> unlocks **Pro**.
-- Key prefix `lt-`, `ag-`, `mg-` or including `mega`/`agency`/`lifetime` -> unlocks **Mega**.
-- Key matching `Z5-OWNER` -> unlocks **Owner Access**.
+- Key prefix `pr-` or including `pro` -> unlocks **Pro**.
+- Key prefix `mg-` or including `mega` -> unlocks **Mega**.
+- Key including `owner` -> unlocks **Owner Access**.
 
 ---
 
-## 💳 Checkout & Payments (Razorpay)
+## 💳 Checkout & Payments (Razorpay Webhook)
 
-Payment redirection link configurations are centralized in [`src/constants/index.ts`](file:///c:/Users/bmxz5/Desktop/extension/src/constants/index.ts):
+ রেডাইরেকশন লিঙ্ক configurations are centralized in [`src/constants/index.ts`](file:///c:/Users/bmxz5/Desktop/extension/src/constants/index.ts):
 ```typescript
 export const PRO_CHECKOUT_URL = 'https://rzp.io/rzp/mp9UpHn';
 export const MEGA_CHECKOUT_URL = 'https://rzp.io/rzp/qLBP8IQg';
 ```
 
-When a free user clicks **Choose Pro** or **Choose Mega** inside the Upgrade Modal, they are redirected to their respective checkout page.
+### Razorpay Webhook Flow (`api/razorpay-webhook.ts`):
+1. User checks out on Razorpay.
+2. Razorpay sends an `order.paid` or `payment.captured` POST request to Vercel.
+3. The server validates the signature using `RAZORPAY_WEBHOOK_SECRET`.
+4. The server creates/upserts the subscriber in the `users` table.
+5. A custom license key beginning with `PR-` or `MG-` is generated and saved in the `licenses` table.
+6. Pro licenses expire in **30 days**; Mega licenses expire in **365 days**.
+7. The payment is logged in the `payments` table (major currency units).
+
+---
+
+## 💾 Database Schema (Supabase)
+
+Create the following tables using the queries in [`schema.sql`](file:///c:/Users/bmxz5/Desktop/extension/schema.sql):
+- **`users`**: Customer list.
+- **`licenses`**: Maps keys to plans, status (`active`, `expired`, `cancelled`), and calculated expirations.
+- **`payments`**: Payment transaction logs.
 
 ---
 
@@ -131,8 +144,8 @@ npm run build
 
 # Load in Chrome
 # Go to: chrome://extensions
-# Turn on: "Developer mode" (top right)
-# Click: "Load unpacked" (top left)
+# Turn on: "Developer mode" (top right toggle)
+# Click: "Load unpacked" (top left button)
 # Select: The /dist directory of this project
 
 # Run watch/dev mode
@@ -151,66 +164,18 @@ npm run dev
 
 ---
 
-## 🌐 Vercel Backend
+## 🌐 Vercel Environment Variables
 
-Live at: `https://proposal-rescue.vercel.app`
+Set these in **Vercel Dashboard ➔ Project Settings ➔ Environment Variables**:
 
-### `POST /api/validate-license`
-```json
-// Request
-{ "licenseKey": "PR-1234-ABCD-5678" }
-
-// Response
-{ "valid": true, "plan": "pro", "message": "License valid — Plan: pro" }
-```
-
-### `POST /api/generate-followup`
-```json
-// Request
-{
-  "licenseKey": "PR-1234-ABCD-5678",
-  "threadContext": {
-    "subject": "Proposal for Website Redesign",
-    "participantName": "John",
-    "followUpCount": 0,
-    "lastUserEmailDate": "2026-06-18T13:30:50Z"
-  },
-  "tone": "professional"
-}
-
-// Response
-{ "draft": "..." }
-```
-
-### Required Vercel Environment Variables
-- `DEEPSEEK_API_KEY`: API key for server-side generation.
-- `OWNER_KEYS`: Comma-separated list of developer owner bypass keys (e.g. `Z5-OWNER`).
-
----
-
-## 🚀 Deployment
-
-Pushing code to the `master` branch auto-deploys the backend serverless endpoints on Vercel:
-```bash
-git add .
-git commit -m "commit message"
-git push origin master
-```
-
----
-
-## 📋 Tech Stack
-
-| Layer | Technology |
+| Variable | Description |
 |---|---|
-| Extension UI | React 18, TypeScript, Tailwind CSS v3 |
-| Extension Build | Vite 5 (dual config: MPA pages + IIFE content script) |
-| Gmail Integration | MutationObserver, Chrome Manifest V3 |
-| Data Persistence | `chrome.storage.sync` |
-| Backend | Vercel Serverless Functions (Node.js / TypeScript) |
-| AI Model | DeepSeek `deepseek-chat` via OpenAI-compatible SDK |
-| Payment Checkout | Razorpay |
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Service Role API key |
+| `DEEPSEEK_API_KEY` | DeepSeek API key for AI generation |
+| `OWNER_KEYS` | Comma-separated list of bypass keys (e.g. `Z5-OWNER`) |
+| `RAZORPAY_WEBHOOK_SECRET` | Secret key configured in Razorpay webhook panel |
 
 ---
 
-*Proposal Rescue © 2026 — Z5SUS/proposal-rescue*
+*Proposal Rescue © 2026 — Built by Z5SUS*

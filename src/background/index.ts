@@ -38,7 +38,7 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
 chrome.runtime.onMessage.addListener(
   (
     message: any,
-    _sender: chrome.runtime.MessageSender,
+    sender: chrome.runtime.MessageSender,
     sendResponse: (response: any) => void,
   ) => {
     if (message.type === 'PING') {
@@ -61,8 +61,17 @@ chrome.runtime.onMessage.addListener(
     }
 
     if (message.type === 'OPEN_DASHBOARD') {
-      const url = chrome.runtime.getURL('dashboard.html');
-      chrome.tabs.create({ url });
+      if (sender.tab?.id) {
+        chrome.sidePanel.open({ tabId: sender.tab.id }).catch((err) => {
+          console.error('[background] Failed to open side panel:', err);
+          // Fallback to new tab if side panel open fails
+          const url = chrome.runtime.getURL('dashboard.html');
+          chrome.tabs.create({ url });
+        });
+      } else {
+        const url = chrome.runtime.getURL('dashboard.html');
+        chrome.tabs.create({ url });
+      }
       sendResponse({ success: true });
       return false;
     }

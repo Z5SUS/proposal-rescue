@@ -60,12 +60,14 @@ export async function getSettings(): Promise<AppSettings> {
   //   • Existing paid plans (solo, agency, lifetime, old pro) → migrate to 'pro' at read-time
   //   • owner remains 'owner'
   //   • Unknown/missing values → fall back to 'free'
-  const VALID_PLANS = ['free', 'pro', 'mega', 'owner'] as const;
+  const VALID_PLANS = ['free', 'pro', 'mega', 'owner', 'test'] as const;
   const plan = settings.licensePlan as string;
   if (['pro', 'solo', 'agency', 'lifetime'].includes(plan)) {
     settings.licensePlan = 'pro';
   } else if (plan === 'owner') {
     settings.licensePlan = 'owner';
+  } else if (plan === 'test') {
+    settings.licensePlan = 'test';
   } else if (!plan || !(VALID_PLANS as readonly string[]).includes(plan)) {
     settings.licensePlan = 'free';
   }

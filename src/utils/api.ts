@@ -216,6 +216,9 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
 
   // Local validation fallback for development
   const lowerKey = key.toLowerCase();
+  if (lowerKey.startsWith('ts-') || lowerKey.includes('test')) {
+    return { valid: true, plan: 'test', message: 'License valid (Local Fallback)' };
+  }
   if (lowerKey.startsWith('pr-') || lowerKey.includes('pro')) {
     return { valid: true, plan: 'pro', message: 'License valid (Local Fallback)' };
   }

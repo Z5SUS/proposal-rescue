@@ -11,7 +11,7 @@ function Options(): React.JSX.Element {
   const [tone, setTone] = useState<AiTone>('professional');
   const [licenseKey, setLicenseKeyState] = useState('');
   const [licenseValid, setLicenseValid] = useState(false);
-  const [licensePlan, setLicensePlan] = useState<'free' | 'pro' | 'mega' | 'owner'>('free');
+  const [licensePlan, setLicensePlan] = useState<'free' | 'pro' | 'mega' | 'owner' | 'test'>('free');
   const [licenseStatus, setLicenseStatus] = useState<'active' | 'expired' | 'invalid' | 'free'>('free');
   const [validating, setValidating] = useState(false);
   const [validationSuccess, setValidationSuccess] = useState(false);

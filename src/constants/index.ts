@@ -21,7 +21,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 // ─── Plan Limits (single source of truth — never hardcode in components) ──────
 
-export type PlanId = 'free' | 'pro' | 'mega' | 'owner';
+export type PlanId = 'free' | 'pro' | 'mega' | 'owner' | 'test';
 
 export interface PlanLimits {
   trackedThreads: number;      // Infinity = unlimited
@@ -45,12 +45,17 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     trackedThreads: Infinity,
     aiDraftsEnabled: true,
   },
+  test: {
+    trackedThreads: Infinity,
+    aiDraftsEnabled: true,
+  },
 };
 
 // ─── Plan Display Info (used by upgrade modal) ────────────────────────────────
 
 export const PRO_CHECKOUT_URL = 'https://rzp.io/rzp/ByBbwe06';
 export const MEGA_CHECKOUT_URL = 'https://rzp.io/rzp/VKyjzme';
+export const TEST_CHECKOUT_URL = '';
 
 export interface PlanInfo {
   id: PlanId;

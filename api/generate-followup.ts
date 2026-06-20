@@ -18,7 +18,7 @@ interface GenerateFollowUpBody {
 }
 
 // ─── Valid license plans that allow AI generation ─────────────────────────────
-const PAID_PLANS = new Set(['pro', 'mega', 'owner']);
+const PAID_PLANS = new Set(['pro', 'mega', 'owner', 'test']);
 
 // ─── Owner Keys (same set as extension) ──────────────────────────────────────
 const OWNER_KEYS = (process.env.OWNER_KEYS ?? 'Z5-OWNER').split(',').map((k) => k.trim());

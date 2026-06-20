@@ -38,7 +38,7 @@ export interface AppSettings {
   openAiApiKey: string;
   licenseKey: string;
   licenseValid: boolean;
-  licensePlan: 'free' | 'pro' | 'mega' | 'owner';
+  licensePlan: 'free' | 'pro' | 'mega' | 'owner' | 'test';
   licenseStatus?: 'active' | 'expired' | 'invalid' | 'free';
 }
 

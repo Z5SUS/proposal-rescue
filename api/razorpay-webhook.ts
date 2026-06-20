@@ -50,7 +50,7 @@ function verifyRazorpaySignature(body: string, signature: string, secret: string
   return expectedSignature === signature;
 }
 
-function generateRandomKey(prefix: 'PR' | 'MG'): string {
+function generateRandomKey(prefix: 'PR' | 'MG' | 'TS'): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const segment = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   return `${prefix}-${segment()}-${segment()}-${segment()}`;
@@ -74,10 +74,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. Signature verification
     if (RAZORPAY_WEBHOOK_SECRET) {
       if (!signature) {
+        console.error('[ADMIN LOG] Webhook verification failed: Missing x-razorpay-signature header.');
         return res.status(401).json({ error: 'Missing x-razorpay-signature header.' });
       }
       const isSignatureValid = verifyRazorpaySignature(rawBody, signature, RAZORPAY_WEBHOOK_SECRET);
       if (!isSignatureValid) {
+        console.error('[ADMIN LOG] Webhook verification failed: Invalid webhook signature.');
         return res.status(401).json({ error: 'Invalid webhook signature.' });
       }
     } else {
@@ -92,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Invalid JSON request body.', details: parseErr?.message });
     }
 
-    console.log('[razorpay-webhook] Event received:', event.event);
+    console.log('[ADMIN LOG] Webhook received:', event.event);
 
     // 4. Ignore unrelated events — only process payment.captured
     if (event.event !== 'payment.captured') {
@@ -107,6 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!paymentId) {
       return res.status(400).json({ error: 'Missing payment ID from payload.' });
     }
+
+    console.log('[ADMIN LOG] Payment verified:', paymentId);
 
     const email = paymentPayload?.email || event.payload?.payment_link?.entity?.customer?.email;
     if (!email) {
@@ -137,14 +141,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    console.log('[ADMIN LOG] Duplicate check passed:', paymentId);
+
     // 6. Plan Detection
     const notes = paymentPayload?.notes || orderPayload?.notes || {};
     const desc = (paymentPayload?.description || orderPayload?.description || '').toLowerCase();
     const planStr = (notes.plan || notes.Plan || '').toLowerCase();
-    const plan: 'pro' | 'mega' = (planStr === 'mega' || desc.includes('mega')) ? 'mega' : 'pro';
-
-    const amount = (paymentPayload?.amount ?? 0) / 100; // Razorpay tracks in paisa
+    const amountPaisa = paymentPayload?.amount ?? 0;
+    const amount = amountPaisa / 100; // Razorpay tracks in paisa
     const currency = paymentPayload?.currency || 'INR';
+
+    let plan: 'pro' | 'mega' | 'test' = 'pro';
+    if (planStr === 'test' || desc.includes('test') || desc.includes('developer test') || amountPaisa === 1000) {
+      plan = 'test';
+    } else if (planStr === 'mega' || desc.includes('mega')) {
+      plan = 'mega';
+    }
 
     // 7. Upsert User
     const { error: userError } = await supabase
@@ -157,12 +169,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 8. Generate License Key
-    const prefix = plan === 'mega' ? 'MG' : 'PR';
+    let prefix: 'PR' | 'MG' | 'TS' = 'PR';
+    if (plan === 'test') {
+      prefix = 'TS';
+    } else if (plan === 'mega') {
+      prefix = 'MG';
+    }
     const licenseKey = generateRandomKey(prefix);
+    console.log(`[ADMIN LOG] License generated: ${licenseKey} (Plan: ${plan})`);
 
-    // 9. Compute expiration duration (Pro = 30 days, Mega = 365 days)
+    // 9. Compute expiration duration (Pro = 30 days, Mega = 365 days, Test = 1 day)
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (plan === 'mega' ? 365 : 30));
+    if (plan === 'test') {
+      expiresAt.setDate(expiresAt.getDate() + 1);
+    } else if (plan === 'mega') {
+      expiresAt.setDate(expiresAt.getDate() + 365);
+    } else {
+      expiresAt.setDate(expiresAt.getDate() + 30);
+    }
 
     // 10. Store License
     const { error: licenseError } = await supabase
@@ -196,10 +220,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn('[razorpay-webhook] Payment log insert warning:', paymentError);
     }
 
+    console.log('[ADMIN LOG] Database insert: User, License, and Payment saved successfully');
+
     // 12. Email delivery of license key
     const emailSent = await sendLicenseEmail(email, licenseKey, plan);
     if (!emailSent) {
       console.warn(`[razorpay-webhook] Failed to send license key email to ${email}. Check Resend configuration.`);
+    } else {
+      console.log(`[ADMIN LOG] Email sent successfully to ${email}`);
     }
 
     console.log(`[razorpay-webhook] Successfully processed payment ${paymentId} and generated license ${licenseKey} for ${email}`);

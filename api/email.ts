@@ -5,24 +5,46 @@
 export async function sendLicenseEmail(
   email: string,
   licenseKey: string,
-  plan: 'pro' | 'mega'
+  plan: 'pro' | 'mega' | 'test'
 ): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY || '';
   const fromEmail = process.env.EMAIL_FROM || 'Proposal Rescue <onboarding@resend.dev>';
 
-  const subject = 'Your Proposal Rescue License';
-  const planName = plan === 'mega' ? 'Mega' : 'Pro';
+  const subject = plan === 'test' ? 'Proposal Rescue Test License' : 'Your Proposal Rescue License';
+  const planName = plan === 'test' ? 'Developer Test' : plan === 'mega' ? 'Mega' : 'Pro';
+  const validDuration = plan === 'test' ? '1 Day' : plan === 'mega' ? '365 Days' : '30 Days';
 
-  const bodyHtml = `
-    <p>Thank you for purchasing Proposal Rescue.</p>
-    <p><strong>License Key:</strong> <code>${licenseKey}</code></p>
-    <p><strong>Plan:</strong> ${planName}</p>
-    <p><strong>Instructions:</strong></p>
-    <ol>
+  const greeting = plan === 'test'
+    ? 'Thank you for testing Proposal Rescue.'
+    : 'Thank you for purchasing Proposal Rescue.';
+
+  const instructionsHtml = plan === 'test'
+    ? `<ol>
+      <li>Open Proposal Rescue Settings.</li>
+      <li>Enter the license.</li>
+      <li>Click Validate License.</li>
+    </ol>`
+    : `<ol>
       <li>Open Extension Settings</li>
       <li>Paste License Key</li>
       <li>Click Validate</li>
-    </ol>
+    </ol>`;
+
+  const instructionsText = plan === 'test'
+    ? `1. Open Proposal Rescue Settings.
+2. Enter the license.
+3. Click Validate License.`
+    : `1. Open Extension Settings
+2. Paste License Key
+3. Click Validate`;
+
+  const bodyHtml = `
+    <p>${greeting}</p>
+    <p><strong>License Key:</strong> <code>${licenseKey}</code></p>
+    <p><strong>Plan:</strong> ${planName}</p>
+    <p><strong>Valid For:</strong> ${validDuration}</p>
+    <p><strong>Instructions:</strong></p>
+    ${instructionsHtml}
   `;
 
   if (!apiKey) {
@@ -30,13 +52,19 @@ export async function sendLicenseEmail(
     console.log(`[email] Simulated email to ${email}:
 Subject: ${subject}
 Body:
-Thank you for purchasing Proposal Rescue.
-License Key: ${licenseKey}
-Plan: ${planName}
+${greeting}
+
+License Key:
+${licenseKey}
+
+Plan:
+${planName}
+
+Valid For:
+${validDuration}
+
 Instructions:
-1. Open Extension Settings
-2. Paste License Key
-3. Click Validate`);
+${instructionsText}`);
     return true;
   }
 

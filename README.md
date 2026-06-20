@@ -59,7 +59,7 @@ proposal-rescue/                     ← Single GitHub repo (Z5SUS/proposal-resc
 | chrome.storage.sync | All data syncs across Chrome devices |
 
 ### Monetization & Feature Gating
-| Feature | Free ($0) | Pro ($29/mo) | Mega ($79/yr) | Owner (Z5-OWNER) |
+| Feature | Free ($0) | Pro ($29/mo) | Mega ($99/yr) | Owner (Z5-OWNER) |
 |---|---|---|---|---|
 | Active tracked threads | Max **3** | **Unlimited** | **Unlimited** | **Unlimited** |
 | AI follow-up drafts | ❌ (Blocked) | **Unlimited** | **Unlimited** | **Unlimited** |
@@ -109,8 +109,8 @@ The extension has local offline validation fallbacks to simplify development:
 
  রেডাইরেকশন লিঙ্ক configurations are centralized in [`src/constants/index.ts`](file:///c:/Users/bmxz5/Desktop/extension/src/constants/index.ts):
 ```typescript
-export const PRO_CHECKOUT_URL = 'https://rzp.io/rzp/mp9UpHn';
-export const MEGA_CHECKOUT_URL = 'https://rzp.io/rzp/qLBP8IQg';
+export const PRO_CHECKOUT_URL = 'https://rzp.io/rzp/ByBbwe06';
+export const MEGA_CHECKOUT_URL = 'https://rzp.io/rzp/VKyjzme';
 ```
 
 ### Razorpay Webhook Flow (`api/razorpay-webhook.ts`):

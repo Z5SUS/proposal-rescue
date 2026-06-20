@@ -120,7 +120,7 @@ export function UpgradeModal({ onClose }: UpgradeModalProps): React.JSX.Element 
                   <span className="pr-text-[8px] pr-font-bold pr-bg-amber-200 pr-text-amber-800 pr-rounded pr-px-1 pr-py-0.5">Best Value</span>
                 </div>
                 <div className="pr-flex pr-items-baseline pr-gap-0.5 pr-mt-0.5">
-                  <span className="pr-text-xl pr-font-bold pr-text-ink-900">$79</span>
+                  <span className="pr-text-xl pr-font-bold pr-text-ink-900">$99</span>
                   <span className="pr-text-xs pr-text-ink-400">/year</span>
                 </div>
               </div>

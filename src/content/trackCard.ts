@@ -332,6 +332,7 @@ async function handleTrack(card: HTMLElement, opts: TrackCardOptions): Promise<v
 
     await saveThread(thread);
     renderTrackedBadge(card, thread);
+    chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' }).catch(() => {});
 
     console.log('[ProposalRescue] ✅ Thread saved:', thread);
   } catch (err) {

@@ -60,6 +60,13 @@ chrome.runtime.onMessage.addListener(
       return false;
     }
 
+    if (message.type === 'OPEN_DASHBOARD') {
+      const url = chrome.runtime.getURL('dashboard.html');
+      chrome.tabs.create({ url });
+      sendResponse({ success: true });
+      return false;
+    }
+
     return false;
   },
 );

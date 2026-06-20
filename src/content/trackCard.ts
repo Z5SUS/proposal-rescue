@@ -335,6 +335,18 @@ async function handleTrack(card: HTMLElement, opts: TrackCardOptions): Promise<v
     chrome.runtime.sendMessage({ type: 'OPEN_DASHBOARD' }).catch(() => {});
 
     console.log('[ProposalRescue] ✅ Thread saved:', thread);
+
+    // Auto-fade-out card after 5 seconds
+    setTimeout(() => {
+      const existingCard = document.getElementById(card.id);
+      if (existingCard) {
+        existingCard.style.transition = 'opacity 0.5s ease-out';
+        existingCard.style.opacity = '0';
+        setTimeout(() => {
+          existingCard.remove();
+        }, 500);
+      }
+    }, 5000);
   } catch (err) {
     console.error('[ProposalRescue] Failed to save thread:', err);
   }

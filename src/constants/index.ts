@@ -73,7 +73,7 @@ export const PAID_PLAN_INFO: PlanInfo[] = [
   {
     id: 'mega',
     label: 'Mega',
-    price: '$79',
+    price: '$99',
     billing: '/year',
     tagline: 'Best value plan',
     checkoutUrl: MEGA_CHECKOUT_URL,

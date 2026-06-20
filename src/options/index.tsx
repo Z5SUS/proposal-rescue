@@ -175,6 +175,10 @@ function Options(): React.JSX.Element {
                 <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-green-50 pr-text-success pr-border pr-border-green-200">
                   Owner Active
                 </span>
+              ) : licenseValid && licensePlan === 'test' ? (
+                <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-blue-50 pr-text-blue-600 pr-border pr-border-blue-200">
+                  Test Active
+                </span>
               ) : licenseValid && licensePlan === 'mega' ? (
                 <span className="pr-px-2 pr-py-0.5 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-bg-amber-50 pr-text-amber-600 pr-border pr-border-amber-200">
                   Mega Active

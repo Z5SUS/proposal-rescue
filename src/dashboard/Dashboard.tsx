@@ -36,7 +36,7 @@ export function Dashboard(): React.JSX.Element {
   const [archivedOpen, setArchivedOpen] = useState(false);
   const settings = useSettings();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const isUpgraded = settings.licenseValid && (settings.licensePlan === 'pro' || settings.licensePlan === 'mega');
+  const isUpgraded = settings.licenseValid && settings.licensePlan !== 'free';
   const showUpgradeButton = !settings.licenseValid || settings.licensePlan === 'free';
 
   function viewThread(threadId: string): void {

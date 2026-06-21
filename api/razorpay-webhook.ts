@@ -1,7 +1,9 @@
+console.log('WEBHOOK FILE LOADED');
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
-import { sendLicenseEmail } from './email';
+import { sendLicenseEmail } from './email.js';
 
 // ─── Supabase Configuration ───────────────────────────────────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
@@ -57,6 +59,7 @@ function generateRandomKey(prefix: 'PR' | 'MG' | 'TS'): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log('WEBHOOK STARTED');
   // CORS preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -95,15 +98,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log('[ADMIN LOG] Webhook received:', event.event);
+    console.log('EVENT RECEIVED');
+    console.log(`event=${event.event}`);
 
-    // 4. Ignore unrelated events — only process payment.captured
-    if (event.event !== 'payment.captured') {
+    // 4. Ignore unrelated events — only process payment.captured or payment_link.paid
+    const allowedEvents = ['payment.captured', 'payment_link.paid'];
+    if (!allowedEvents.includes(event.event)) {
       console.log(`[razorpay-webhook] Ignoring event: ${event.event}`);
       return res.status(200).json({ received: true, ignored: true });
     }
 
     const paymentPayload = event.payload?.payment?.entity;
     const orderPayload = event.payload?.order?.entity;
+    const paymentLinkPayload = event.payload?.payment_link?.entity;
 
     const paymentId = paymentPayload?.id;
     if (!paymentId) {
@@ -112,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('[ADMIN LOG] Payment verified:', paymentId);
 
-    const email = paymentPayload?.email || event.payload?.payment_link?.entity?.customer?.email;
+    const email = paymentPayload?.email || paymentLinkPayload?.customer?.email;
     if (!email) {
       return res.status(400).json({ error: 'Missing customer email from payload.' });
     }
@@ -144,12 +151,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[ADMIN LOG] Duplicate check passed:', paymentId);
 
     // 6. Plan Detection
-    const notes = paymentPayload?.notes || orderPayload?.notes || {};
-    const desc = (paymentPayload?.description || orderPayload?.description || '').toLowerCase();
+    const notes = paymentPayload?.notes || paymentLinkPayload?.notes || orderPayload?.notes || {};
+    const desc = (
+      paymentPayload?.description ||
+      paymentLinkPayload?.description ||
+      orderPayload?.description ||
+      ''
+    ).toLowerCase();
     const planStr = (notes.plan || notes.Plan || '').toLowerCase();
-    const amountPaisa = paymentPayload?.amount ?? 0;
+    const amountPaisa = paymentPayload?.amount ?? paymentLinkPayload?.amount ?? 0;
     const amount = amountPaisa / 100; // Razorpay tracks in paisa
-    const currency = paymentPayload?.currency || 'INR';
+    const currency = paymentPayload?.currency || paymentLinkPayload?.currency || 'INR';
 
     let plan: 'pro' | 'mega' | 'test' = 'pro';
     if (planStr === 'test' || desc.includes('test') || desc.includes('developer test') || amountPaisa === 1000) {
@@ -167,6 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('[razorpay-webhook] User upsert error:', userError);
       return res.status(500).json({ error: 'Failed to upsert user record.' });
     }
+    console.log('USER INSERTED');
 
     // 8. Generate License Key
     let prefix: 'PR' | 'MG' | 'TS' = 'PR';
@@ -203,6 +216,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('[razorpay-webhook] License insert error:', licenseError);
       return res.status(500).json({ error: 'Failed to generate license record.' });
     }
+    console.log('LICENSE INSERTED');
 
     // 11. Store Payment Log
     const { error: paymentError } = await supabase
@@ -218,6 +232,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (paymentError) {
       console.warn('[razorpay-webhook] Payment log insert warning:', paymentError);
+    } else {
+      console.log('PAYMENT INSERTED');
     }
 
     console.log('[ADMIN LOG] Database insert: User, License, and Payment saved successfully');
@@ -228,6 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn(`[razorpay-webhook] Failed to send license key email to ${email}. Check Resend configuration.`);
     } else {
       console.log(`[ADMIN LOG] Email sent successfully to ${email}`);
+      console.log('EMAIL SENT');
     }
 
     console.log(`[razorpay-webhook] Successfully processed payment ${paymentId} and generated license ${licenseKey} for ${email}`);

@@ -1,6 +1,7 @@
 /**
  * Email Delivery Utility — Resend Integration
  */
+console.log('EMAIL MODULE LOADED');
 
 export async function sendLicenseEmail(
   email: string,

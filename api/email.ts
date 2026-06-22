@@ -50,7 +50,15 @@ export async function sendLicenseEmail(
     ${instructionsHtml}
   `;
 
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+
   if (!apiKey) {
+    if (isProduction) {
+      console.error('EMAIL_CONFIGURATION_ERROR reason=missing_resend_api_key');
+      console.error(`EMAIL_FAILED recipient=${email} licenseKey=${licenseKey} error=missing_resend_api_key`);
+      return false;
+    }
+
     console.warn('[email] RESEND_API_KEY is not set. Simulation mode active.');
     console.log(`[email] Simulated email to ${email}:
 Subject: ${subject}

@@ -9,6 +9,9 @@ import { sendLicenseEmail } from './email.js';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || '';
+const TEST_PAYMENT_LINK_ID = process.env.TEST_PAYMENT_LINK_ID || '';
+const PRO_PAYMENT_LINK_ID = process.env.PRO_PAYMENT_LINK_ID || '';
+const MEGA_PAYMENT_LINK_ID = process.env.MEGA_PAYMENT_LINK_ID || '';
 
 // Disable Vercel body parser to get raw body for signature verification
 export const config = {
@@ -84,24 +87,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const signature = req.headers['x-razorpay-signature'] as string;
 
     // 2. Signature verification
-    if (RAZORPAY_WEBHOOK_SECRET) {
-      if (!signature) {
-        console.error('[ADMIN LOG] Webhook verification failed: Missing x-razorpay-signature header.');
-        console.error('VALIDATION FAILED reason=missing_signature_header');
-        await logSystemError('webhook_error', 'Missing signature header');
-        return res.status(401).json({ error: 'Missing x-razorpay-signature header.' });
-      }
-      const isSignatureValid = verifyRazorpaySignature(rawBody, signature, RAZORPAY_WEBHOOK_SECRET);
-      if (!isSignatureValid) {
-        console.error('[ADMIN LOG] Webhook verification failed: Invalid webhook signature.');
-        console.error('VALIDATION FAILED reason=invalid_signature');
-        await logSystemError('webhook_error', 'Invalid webhook signature', signature);
-        return res.status(401).json({ error: 'Invalid webhook signature.' });
-      }
-    } else {
-      console.warn('[razorpay-webhook] RAZORPAY_WEBHOOK_SECRET is not set. Bypassing signature verification.');
+    console.log('SIGNATURE_VERIFICATION_STARTED');
+    if (!RAZORPAY_WEBHOOK_SECRET) {
+      console.error('SIGNATURE_VERIFICATION_FAILED reason=missing_webhook_secret');
+      await logSystemError('webhook_error', 'RAZORPAY_WEBHOOK_SECRET is missing');
+      return res.status(500).json({ error: 'Webhook secret is not configured.' });
     }
-    console.log('SIGNATURE VERIFIED');
+
+    if (!signature) {
+      console.error('SIGNATURE_VERIFICATION_FAILED reason=missing_signature_header');
+      await logSystemError('webhook_error', 'Missing x-razorpay-signature header');
+      return res.status(401).json({ error: 'Missing x-razorpay-signature header.' });
+    }
+
+    const isSignatureValid = verifyRazorpaySignature(rawBody, signature, RAZORPAY_WEBHOOK_SECRET);
+    if (!isSignatureValid) {
+      console.error('SIGNATURE_VERIFICATION_FAILED reason=invalid_signature');
+      await logSystemError('webhook_error', 'Invalid webhook signature', signature);
+      return res.status(401).json({ error: 'Invalid webhook signature.' });
+    }
+
+    console.log('SIGNATURE_VERIFIED');
 
     // 3. Parse JSON event
     let event: any;
@@ -186,11 +192,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const amount = amountPaisa / 100; // Razorpay tracks in paisa
     const currency = paymentPayload?.currency || paymentLinkPayload?.currency || 'INR';
 
-    let plan: 'pro' | 'mega' | 'test' = 'pro';
-    if (planStr === 'test' || desc.includes('test') || desc.includes('developer test') || amountPaisa === 1000) {
-      plan = 'test';
-    } else if (planStr === 'mega' || desc.includes('mega')) {
-      plan = 'mega';
+    let plan: 'pro' | 'mega' | 'test' | null = null;
+
+    // A. Check payment link ID mapping first
+    if (paymentLinkId) {
+      if (TEST_PAYMENT_LINK_ID && paymentLinkId === TEST_PAYMENT_LINK_ID) {
+        plan = 'test';
+      } else if (PRO_PAYMENT_LINK_ID && paymentLinkId === PRO_PAYMENT_LINK_ID) {
+        plan = 'pro';
+      } else if (MEGA_PAYMENT_LINK_ID && paymentLinkId === MEGA_PAYMENT_LINK_ID) {
+        plan = 'mega';
+      }
+    }
+
+    // B. Check notes/metadata fallback
+    if (!plan) {
+      if (planStr === 'test' || desc.includes('developer test') || desc.includes('test plan')) {
+        plan = 'test';
+      } else if (planStr === 'mega' || desc.includes('mega')) {
+        plan = 'mega';
+      } else if (planStr === 'pro' || desc.includes('pro')) {
+        plan = 'pro';
+      }
+    }
+
+    if (!plan) {
+      console.error('VALIDATION FAILED reason=undetermined_plan');
+      await logSystemError('webhook_error', 'Undetermined plan from webhook payload');
+      return res.status(400).json({ error: 'Failed to determine plan from payload.' });
     }
 
     // 7. Upsert User

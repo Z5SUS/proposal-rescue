@@ -217,17 +217,20 @@ export async function validateLicenseAPI(licenseKey: string): Promise<{ valid: b
   // Local validation fallback for development
   const lowerKey = key.toLowerCase();
   if (lowerKey.startsWith('ts-') || lowerKey.includes('test')) {
-    return { valid: true, plan: 'test', message: 'License valid (Local Fallback)' };
+    const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    return { valid: true, plan: 'test', message: 'License valid (Local Fallback)', expiresAt };
   }
   if (lowerKey.startsWith('pr-') || lowerKey.includes('pro')) {
-    return { valid: true, plan: 'pro', message: 'License valid (Local Fallback)' };
+    const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+    return { valid: true, plan: 'pro', message: 'License valid (Local Fallback)', expiresAt };
   }
   if (lowerKey.startsWith('mg-') || lowerKey.includes('mega')) {
-    return { valid: true, plan: 'mega', message: 'License valid (Local Fallback)' };
+    const expiresAt = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
+    return { valid: true, plan: 'mega', message: 'License valid (Local Fallback)', expiresAt };
   }
   if (lowerKey.includes('owner')) {
-    return { valid: true, plan: 'owner', message: 'License valid (Local Fallback)' };
+    return { valid: true, plan: 'owner', message: 'License valid (Local Fallback)', expiresAt: null };
   }
 
-  return { valid: false, plan: 'free', message: 'Invalid or unrecognized license key.' };
+  return { valid: false, plan: 'free', message: 'Invalid or unrecognized license key.', expiresAt: null };
 }

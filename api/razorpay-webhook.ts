@@ -58,6 +58,15 @@ function generateRandomKey(prefix: 'PR' | 'MG' | 'TS'): string {
   return `${prefix}-${segment()}-${segment()}-${segment()}`;
 }
 
+async function logSystemError(type: 'webhook_error' | 'email_error', message: string, details?: string) {
+  try {
+    const supabase = getSupabase();
+    await supabase.from('system_logs').insert({ type, message, details });
+  } catch (err) {
+    console.error('[logSystemError] Failed to save log:', err);
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('WEBHOOK STARTED');
   // CORS preflight
@@ -78,22 +87,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (RAZORPAY_WEBHOOK_SECRET) {
       if (!signature) {
         console.error('[ADMIN LOG] Webhook verification failed: Missing x-razorpay-signature header.');
+        console.error('VALIDATION FAILED reason=missing_signature_header');
+        await logSystemError('webhook_error', 'Missing signature header');
         return res.status(401).json({ error: 'Missing x-razorpay-signature header.' });
       }
       const isSignatureValid = verifyRazorpaySignature(rawBody, signature, RAZORPAY_WEBHOOK_SECRET);
       if (!isSignatureValid) {
         console.error('[ADMIN LOG] Webhook verification failed: Invalid webhook signature.');
+        console.error('VALIDATION FAILED reason=invalid_signature');
+        await logSystemError('webhook_error', 'Invalid webhook signature', signature);
         return res.status(401).json({ error: 'Invalid webhook signature.' });
       }
     } else {
       console.warn('[razorpay-webhook] RAZORPAY_WEBHOOK_SECRET is not set. Bypassing signature verification.');
     }
+    console.log('SIGNATURE VERIFIED');
 
     // 3. Parse JSON event
     let event: any;
     try {
       event = JSON.parse(rawBody);
     } catch (parseErr: any) {
+      console.error('VALIDATION FAILED reason=json_parse_error details=' + parseErr?.message);
+      await logSystemError('webhook_error', 'JSON parse error', parseErr?.message);
       return res.status(400).json({ error: 'Invalid JSON request body.', details: parseErr?.message });
     }
 
@@ -114,6 +130,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const paymentId = paymentPayload?.id;
     if (!paymentId) {
+      console.error('VALIDATION FAILED reason=missing_payment_id');
+      await logSystemError('webhook_error', 'Missing payment ID');
       return res.status(400).json({ error: 'Missing payment ID from payload.' });
     }
 
@@ -121,6 +139,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const email = paymentPayload?.email || paymentLinkPayload?.customer?.email;
     if (!email) {
+      console.error('VALIDATION FAILED reason=missing_customer_email');
+      await logSystemError('webhook_error', 'Missing customer email');
       return res.status(400).json({ error: 'Missing customer email from payload.' });
     }
 
@@ -135,11 +155,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (paymentQueryError) {
       console.error('[razorpay-webhook] Error querying payments:', paymentQueryError);
+      console.error('VALIDATION FAILED reason=db_payment_query_error details=' + paymentQueryError?.message);
+      await logSystemError('webhook_error', 'Database payment query error', paymentQueryError?.message);
       return res.status(500).json({ error: 'Failed to verify transaction duplicate status.' });
     }
 
     if (existingPayment) {
       console.log(`[razorpay-webhook] Duplicate webhook: Payment ${paymentId} already processed with license ${existingPayment.license_key}.`);
+      console.log('VALIDATION SUCCESS');
       return res.status(200).json({
         success: true,
         duplicate: true,
@@ -177,6 +200,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (userError) {
       console.error('[razorpay-webhook] User upsert error:', userError);
+      console.error('VALIDATION FAILED reason=user_upsert_error details=' + userError?.message);
+      await logSystemError('webhook_error', 'User upsert error', userError?.message);
       return res.status(500).json({ error: 'Failed to upsert user record.' });
     }
     console.log('USER INSERTED');
@@ -214,6 +239,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (licenseError) {
       console.error('[razorpay-webhook] License insert error:', licenseError);
+      console.error('VALIDATION FAILED reason=license_insert_error details=' + licenseError?.message);
+      await logSystemError('webhook_error', 'License insert error', licenseError?.message);
       return res.status(500).json({ error: 'Failed to generate license record.' });
     }
     console.log('LICENSE INSERTED');
@@ -242,12 +269,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const emailSent = await sendLicenseEmail(email, licenseKey, plan);
     if (!emailSent) {
       console.warn(`[razorpay-webhook] Failed to send license key email to ${email}. Check Resend configuration.`);
+      await logSystemError('email_error', `Failed to send license key email to ${email}`, `License: ${licenseKey}, Plan: ${plan}`);
     } else {
       console.log(`[ADMIN LOG] Email sent successfully to ${email}`);
       console.log('EMAIL SENT');
     }
 
     console.log(`[razorpay-webhook] Successfully processed payment ${paymentId} and generated license ${licenseKey} for ${email}`);
+    console.log('VALIDATION SUCCESS');
     
     return res.status(200).json({
       success: true,
@@ -259,6 +288,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (err: any) {
     console.error('[razorpay-webhook] Processing failed:', err);
+    console.error('VALIDATION FAILED reason=internal_exception details=' + err?.message);
+    await logSystemError('webhook_error', 'Internal server exception', err?.message);
     return res.status(500).json({ error: 'Internal processing error.', details: err?.message });
   }
+}
+}
 }

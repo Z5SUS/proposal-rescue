@@ -71,6 +71,7 @@ function Options(): React.JSX.Element {
         licenseValid: result.valid,
         licensePlan: result.plan as AppSettings['licensePlan'],
         licenseStatus: status,
+        licenseExpiresAt: result.expiresAt || null,
       });
       if (result.valid) {
         setValidationSuccess(true);

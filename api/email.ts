@@ -8,6 +8,8 @@ export async function sendLicenseEmail(
   licenseKey: string,
   plan: 'pro' | 'mega' | 'test'
 ): Promise<boolean> {
+  console.log(`EMAIL_ATTEMPTED recipient=${email} licenseKey=${licenseKey}`);
+
   const apiKey = process.env.RESEND_API_KEY || '';
   const fromEmail = process.env.EMAIL_FROM || 'Proposal Rescue <onboarding@resend.dev>';
 
@@ -66,6 +68,7 @@ ${validDuration}
 
 Instructions:
 ${instructionsText}`);
+    console.log(`EMAIL_SUCCESS recipient=${email} licenseKey=${licenseKey} (simulated)`);
     return true;
   }
 
@@ -87,14 +90,18 @@ ${instructionsText}`);
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`[email] Resend API error (HTTP ${res.status}):`, errorText);
+      console.error(`EMAIL_FAILED recipient=${email} licenseKey=${licenseKey} error=${errorText}`);
       return false;
     }
 
     const data = await res.json();
     console.log('[email] Resend response:', data);
+    console.log(`EMAIL_SUCCESS recipient=${email} licenseKey=${licenseKey}`);
     return true;
-  } catch (err) {
+  } catch (err: any) {
     console.error('[email] Exception sending email via Resend:', err);
+    console.error(`EMAIL_FAILED recipient=${email} licenseKey=${licenseKey} error=${err?.message || err}`);
     return false;
   }
 }
+

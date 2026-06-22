@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { TrackedThread } from '@/types';
 import { useThreads } from '@/hooks/useThreads';
 import { Header } from '@/dashboard/components/Header';
@@ -9,6 +9,7 @@ import { EmptyState } from '@/dashboard/components/EmptyState';
 import { FollowUpPanel } from '@/dashboard/components/FollowUpPanel';
 import { useSettings } from '@/hooks/useSettings';
 import { UpgradeModal } from '@/dashboard/components/UpgradeModal';
+import { getSettings, saveSettings } from '@/utils/storage';
 
 /** Builds the Gmail URL for a given thread ID */
 function gmailThreadUrl(threadId: string): string {
@@ -38,6 +39,60 @@ export function Dashboard(): React.JSX.Element {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const isUpgraded = settings.licenseValid && settings.licensePlan !== 'free';
   const showUpgradeButton = !settings.licenseValid || settings.licensePlan === 'free';
+
+  // Auto-downgrade expired licenses on component mount/load
+  useEffect(() => {
+    if (settings.licenseValid && settings.licenseExpiresAt && settings.licensePlan !== 'owner') {
+      const expiryTime = new Date(settings.licenseExpiresAt).getTime();
+      const now = Date.now();
+      if (now > expiryTime) {
+        void getSettings().then((curr) => {
+          void saveSettings({
+            ...curr,
+            licenseValid: false,
+            licensePlan: 'free',
+            licenseStatus: 'expired',
+          });
+        });
+      }
+    }
+  }, [settings]);
+
+  const getLicenseWarning = (): { text: string; severity: 'notice' | 'warning' | 'urgent' } | null => {
+    if (!settings.licenseValid || !settings.licenseExpiresAt || settings.licensePlan === 'owner') {
+      return null;
+    }
+    const expiryTime = new Date(settings.licenseExpiresAt).getTime();
+    const now = Date.now();
+    const msDiff = expiryTime - now;
+    if (msDiff < 0) {
+      return null;
+    }
+
+    const daysRemaining = msDiff / (1000 * 3600 * 24);
+
+    if (daysRemaining <= 1) {
+      return {
+        text: `Urgent: Your license expires in ${Math.ceil(daysRemaining * 24)} hours. Renew now to avoid losing AI follow-up features.`,
+        severity: 'urgent',
+      };
+    }
+    if (daysRemaining <= 3) {
+      return {
+        text: `Warning: Your license expires in ${Math.ceil(daysRemaining)} days. Please renew to keep your follow-up pipeline active.`,
+        severity: 'warning',
+      };
+    }
+    if (daysRemaining <= 7) {
+      return {
+        text: `Notice: Your license will expire in ${Math.ceil(daysRemaining)} days. Consider renewing your subscription.`,
+        severity: 'notice',
+      };
+    }
+    return null;
+  };
+
+  const warning = getLicenseWarning();
 
   function viewThread(threadId: string): void {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -110,6 +165,30 @@ export function Dashboard(): React.JSX.Element {
       <Header actionCount={overdueCount} />
 
       <div className="pr-px-3 pr-pt-4 pr-pb-8 pr-space-y-6">
+        {/* Expiry Warning Banner */}
+        {warning && (
+          <div className={`pr-px-3 pr-py-2.5 pr-rounded-lg pr-text-xs pr-font-medium pr-border pr-mb-3 pr-flex pr-items-center pr-justify-between animate-fade-in ${
+            warning.severity === 'urgent'
+              ? 'pr-bg-red-50 pr-text-red-700 pr-border-red-200'
+              : warning.severity === 'warning'
+              ? 'pr-bg-amber-50 pr-text-amber-700 pr-border-amber-200'
+              : 'pr-bg-blue-50 pr-text-blue-700 pr-border-blue-200'
+          }`}>
+            <span className="pr-flex-1 pr-leading-relaxed">{warning.text}</span>
+            <button
+              onClick={() => setShowUpgradeModal(true)}
+              className={`pr-px-2 pr-py-1 pr-rounded pr-text-[10px] pr-font-bold pr-uppercase pr-border-0 pr-cursor-pointer pr-shrink-0 pr-ml-2 ${
+                warning.severity === 'urgent'
+                  ? 'pr-bg-red-600 hover:pr-bg-red-700 pr-text-white'
+                  : warning.severity === 'warning'
+                  ? 'pr-bg-amber-500 hover:pr-bg-amber-600 pr-text-white'
+                  : 'pr-bg-blue-600 hover:pr-bg-blue-700 pr-text-white'
+              }`}
+            >
+              Renew
+            </button>
+          </div>
+        )}
 
         {/* ── Tracked Threads & Empty Dashboard State ────────────────── */}
         {active.length === 0 && snoozed.length === 0 ? (

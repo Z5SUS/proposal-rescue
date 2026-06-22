@@ -68,6 +68,17 @@ async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean;
       }
     }
 
+    // Log successful validation
+    try {
+      await supabase.from('system_logs').insert({
+        type: 'license_activation',
+        message: `License validated: ${key}`,
+        details: JSON.stringify({ plan: license.plan, email: license.user_email }),
+      });
+    } catch (logErr) {
+      console.error('[validate-license] Failed to write activation log:', logErr);
+    }
+
     return {
       valid: true,
       plan: license.plan,

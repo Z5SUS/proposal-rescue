@@ -148,7 +148,8 @@ export async function getActionableThreads(): Promise<TrackedThread[]> {
   return Object.values(threads).filter((t) => {
     if (t.status !== 'active') return false;
     if (t.snoozedUntil && new Date(t.snoozedUntil) > now) return false;
-    return new Date(t.nextActionDate) <= now;
+    const targetDate = t.customFollowUpDate || t.nextActionDate;
+    return new Date(targetDate) <= now;
   });
 }
 

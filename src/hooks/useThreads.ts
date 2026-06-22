@@ -29,6 +29,7 @@ interface ThreadActions {
   snooze: (threadId: string, daysOrDate: number | string) => Promise<void>;
   resumeNow: (threadId: string) => Promise<void>;
   retrack: (threadId: string) => Promise<void>;
+  setCustomDate: (threadId: string, isoDate: string) => Promise<void>;
   deleteHistory: (threadId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -53,10 +54,12 @@ export function useThreads(): ThreadsState & ThreadActions {
       setActive(
         allActive.sort((x, y) => {
           const now = Date.now();
-          const xOver = new Date(x.nextActionDate).getTime() <= now;
-          const yOver = new Date(y.nextActionDate).getTime() <= now;
+          const xTarget = x.customFollowUpDate || x.nextActionDate;
+          const yTarget = y.customFollowUpDate || y.nextActionDate;
+          const xOver = new Date(xTarget).getTime() <= now;
+          const yOver = new Date(yTarget).getTime() <= now;
           if (xOver !== yOver) return xOver ? -1 : 1;
-          const diff = new Date(x.nextActionDate).getTime() - new Date(y.nextActionDate).getTime();
+          const diff = new Date(xTarget).getTime() - new Date(yTarget).getTime();
           if (diff !== 0) return diff;
           return new Date(y.lastUserEmailDate).getTime() - new Date(x.lastUserEmailDate).getTime();
         }),
@@ -130,8 +133,14 @@ export function useThreads(): ThreadsState & ThreadActions {
       status: 'active',
       lastUserEmailDate: now,
       nextActionDate: isoInDays(settings.followUpIntervalDays),
+      customFollowUpDate: null,
       snoozedUntil: null,
     });
+    await refresh();
+  }, [refresh]);
+
+  const setCustomDate = useCallback(async (threadId: string, isoDate: string) => {
+    await updateThread(threadId, { customFollowUpDate: isoDate, nextActionDate: isoDate });
     await refresh();
   }, [refresh]);
 
@@ -152,6 +161,7 @@ export function useThreads(): ThreadsState & ThreadActions {
     snooze,
     resumeNow,
     retrack,
+    setCustomDate,
     deleteHistory,
     refresh,
   };

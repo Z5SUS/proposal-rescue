@@ -11,11 +11,6 @@ import { useSettings } from '@/hooks/useSettings';
 import { UpgradeModal } from '@/dashboard/components/UpgradeModal';
 import { getSettings, saveSettings } from '@/utils/storage';
 
-/** Builds the Gmail URL for a given thread ID */
-function gmailThreadUrl(threadId: string): string {
-  return `https://mail.google.com/mail/u/0/#all/${threadId}`;
-}
-
 export function Dashboard(): React.JSX.Element {
   const {
     active,
@@ -29,6 +24,7 @@ export function Dashboard(): React.JSX.Element {
     snooze,
     resumeNow,
     retrack,
+    setCustomDate,
     deleteHistory,
   } = useThreads();
 
@@ -94,14 +90,7 @@ export function Dashboard(): React.JSX.Element {
 
   const warning = getLicenseWarning();
 
-  function viewThread(threadId: string): void {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tab = tabs[0];
-      if (tab?.id != null) {
-        chrome.tabs.update(tab.id, { url: gmailThreadUrl(threadId) });
-      }
-    });
-  }
+
 
   function openGmailToTrack(): void {
     // Query ALL tabs in the current window — not just the "active" one,
@@ -240,7 +229,7 @@ export function Dashboard(): React.JSX.Element {
               ) : (
                 <div className="pr-space-y-2">
                   {active.map((thread) => {
-                    const isOverdue = new Date(thread.nextActionDate).getTime() <= Date.now();
+                    const isOverdue = new Date(thread.customFollowUpDate || thread.nextActionDate).getTime() <= Date.now();
                     return (
                       <ThreadCard
                         key={thread.threadId}
@@ -250,7 +239,7 @@ export function Dashboard(): React.JSX.Element {
                         onLost={() => void markLost(thread.threadId)}
                         onStop={() => void stopTracking(thread.threadId)}
                         onSnooze={(daysOrDate) => void snooze(thread.threadId, daysOrDate)}
-                        onViewThread={() => viewThread(thread.threadId)}
+                        onSetCustomDate={(isoDate) => void setCustomDate(thread.threadId, isoDate)}
                         onGenerateFollowUp={() => setFollowUpThread(thread)}
                       />
                     );
@@ -258,7 +247,7 @@ export function Dashboard(): React.JSX.Element {
                 </div>
               )}
             </section>
-
+ 
             {/* ── Snoozed ───────────────────────────────────────────── */}
             {snoozed.length > 0 && (
               <section>
@@ -281,7 +270,7 @@ export function Dashboard(): React.JSX.Element {
                     </svg>
                   </div>
                 </button>
-
+ 
                 {snoozedOpen && (
                   <div className="pr-space-y-2">
                     {snoozed.map((thread) => (
@@ -289,7 +278,6 @@ export function Dashboard(): React.JSX.Element {
                         key={thread.threadId}
                         thread={thread}
                         onResume={() => void resumeNow(thread.threadId)}
-                        onViewThread={() => viewThread(thread.threadId)}
                       />
                     ))}
                   </div>
@@ -298,7 +286,7 @@ export function Dashboard(): React.JSX.Element {
             )}
           </>
         )}
-
+ 
         {/* ── Archived / History ────────────────────────────────── */}
         {archived.length > 0 && (
           <section>
@@ -321,7 +309,7 @@ export function Dashboard(): React.JSX.Element {
                 </svg>
               </div>
             </button>
-
+ 
             {archivedOpen && (
               <div className="pr-space-y-2">
                 {archived.map((thread) => (
@@ -329,7 +317,6 @@ export function Dashboard(): React.JSX.Element {
                     key={thread.threadId}
                     thread={thread}
                     onRetrack={() => void retrack(thread.threadId)}
-                    onViewThread={() => viewThread(thread.threadId)}
                     onDelete={() => void deleteHistory(thread.threadId)}
                   />
                 ))}

@@ -4,14 +4,12 @@ import type { TrackedThread } from '@/types';
 interface ArchivedCardProps {
   thread: TrackedThread;
   onRetrack: () => void;
-  onViewThread: () => void;
   onDelete: () => void;
 }
 
 export function ArchivedCard({
   thread,
   onRetrack,
-  onViewThread,
   onDelete,
 }: ArchivedCardProps): React.JSX.Element {
   let statusText = '';
@@ -53,21 +51,13 @@ export function ArchivedCard({
         >
           Track Again
         </button>
-        <div className="pr-flex pr-gap-1">
-          <button
-            onClick={onViewThread}
-            className="pr-flex-1 pr-text-[10px] pr-py-1 pr-px-2 pr-rounded pr-border pr-border-surface-200 pr-text-ink-600 hover:pr-bg-surface-50 pr-transition-colors pr-cursor-pointer pr-bg-white pr-font-medium pr-whitespace-nowrap pr-text-center"
-          >
-            View
-          </button>
-          <button
-            onClick={onDelete}
-            title="Delete from history"
-            className="pr-text-[10px] pr-py-1 pr-px-2 pr-rounded pr-border pr-border-red-100 pr-text-danger hover:pr-bg-red-50 pr-transition-colors pr-cursor-pointer pr-bg-white pr-font-medium"
-          >
-            ✕
-          </button>
-        </div>
+        <button
+          onClick={onDelete}
+          title="Delete from history"
+          className="pr-text-xs pr-py-1 pr-px-2.5 pr-rounded pr-border pr-border-red-100 pr-text-danger hover:pr-bg-red-50 pr-transition-colors pr-cursor-pointer pr-bg-white pr-font-medium pr-whitespace-nowrap"
+        >
+          Delete
+        </button>
       </div>
     </div>
   );

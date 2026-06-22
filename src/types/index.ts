@@ -21,6 +21,8 @@ export interface TrackedThread {
   lastUserEmailDate: string;
   /** ISO timestamp when a follow-up action should next be surfaced */
   nextActionDate: string;
+  /** Custom manually set next action follow-up date */
+  customFollowUpDate?: string | null;
   /** ISO timestamp until which reminders are suppressed; null if not snoozed */
   snoozedUntil: string | null;
   /** ISO timestamp of when tracking was first enabled */

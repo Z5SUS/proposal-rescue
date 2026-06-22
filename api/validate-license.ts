@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
+import { getClientIp, isRateLimited } from './rate-limit.js';
+
 // ─── Owner Keys ───────────────────────────────────────────────────────────────
 const OWNER_KEYS = (process.env.OWNER_KEYS ?? 'Z5-OWNER').split(',').map((k) => k.trim());
 
@@ -36,7 +38,7 @@ async function validateLicenseKey(licenseKey: string): Promise<{ valid: boolean;
     // Query Supabase for the license key
     const { data: license, error } = await supabase
       .from('licenses')
-      .select('plan, expires_at, status')
+      .select('plan, expires_at, status, user_email')
       .eq('license_key', key)
       .maybeSingle();
 
@@ -102,6 +104,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+  }
+
+  // Rate Limiting Check: 30 requests/hour/IP
+  const ip = getClientIp(req);
+  const isLimited = await isRateLimited(ip, 'validate-license', 30);
+  if (isLimited) {
+    return res.status(429).json({
+      valid: false,
+      plan: 'free',
+      message: 'Too many requests. Please try again later.',
+    });
   }
 
   const { licenseKey } = req.body as { licenseKey?: string };

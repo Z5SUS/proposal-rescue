@@ -9,9 +9,6 @@ import { sendLicenseEmail } from './email.js';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || '';
-const TEST_PAYMENT_LINK_ID = process.env.TEST_PAYMENT_LINK_ID || '';
-const PRO_PAYMENT_LINK_ID = process.env.PRO_PAYMENT_LINK_ID || '';
-const MEGA_PAYMENT_LINK_ID = process.env.MEGA_PAYMENT_LINK_ID || '';
 
 // Disable Vercel body parser to get raw body for signature verification
 export const config = {
@@ -81,34 +78,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
   }
 
+  let rawBody = '';
   try {
     // 1. Read raw request body
-    const rawBody = await getRawBody(req);
-    const signature = req.headers['x-razorpay-signature'] as string;
+    rawBody = await getRawBody(req);
+  } catch (err: any) {
+    console.error('[razorpay-webhook] Failed to read raw body:', err);
+    return res.status(400).json({ error: 'Failed to read request body.' });
+  }
 
-    // 2. Signature verification
-    console.log('SIGNATURE_VERIFICATION_STARTED');
-    if (!RAZORPAY_WEBHOOK_SECRET) {
-      console.error('SIGNATURE_VERIFICATION_FAILED reason=missing_webhook_secret');
-      await logSystemError('webhook_error', 'RAZORPAY_WEBHOOK_SECRET is missing');
-      return res.status(500).json({ error: 'Webhook secret is not configured.' });
+  const signature = req.headers['x-razorpay-signature'] as string;
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || (req.headers['x-real-ip'] as string) || 'unknown';
+  const payloadHash = crypto.createHash('sha256').update(rawBody).digest('hex');
+
+  // 2. Webhook Security Verification
+  console.log('SIGNATURE_VERIFICATION_STARTED');
+
+  if (!RAZORPAY_WEBHOOK_SECRET) {
+    console.error('SIGNATURE_VERIFICATION_FAILED reason=missing_webhook_secret_config');
+    await logSystemError('webhook_error', 'Missing RAZORPAY_WEBHOOK_SECRET environment variable');
+    return res.status(500).json({ error: 'Webhook signature verification is not configured on the server.' });
+  }
+
+  if (!signature) {
+    console.error('SIGNATURE_VERIFICATION_FAILED reason=missing_signature');
+    try {
+      const supabase = getSupabase();
+      await supabase.from('system_logs').insert({
+        type: 'webhook_attack',
+        message: 'Missing x-razorpay-signature header',
+        details: JSON.stringify({ ip, timestamp: new Date().toISOString(), reason: 'missing_signature', payloadHash })
+      });
+    } catch (dbErr) {
+      console.error('[razorpay-webhook] Failed to log webhook attack to DB:', dbErr);
     }
+    return res.status(401).json({ error: 'Missing x-razorpay-signature header.' });
+  }
 
-    if (!signature) {
-      console.error('SIGNATURE_VERIFICATION_FAILED reason=missing_signature_header');
-      await logSystemError('webhook_error', 'Missing x-razorpay-signature header');
-      return res.status(401).json({ error: 'Missing x-razorpay-signature header.' });
+  const isSignatureValid = verifyRazorpaySignature(rawBody, signature, RAZORPAY_WEBHOOK_SECRET);
+  if (!isSignatureValid) {
+    console.error('SIGNATURE_VERIFICATION_FAILED reason=invalid_signature');
+    try {
+      const supabase = getSupabase();
+      await supabase.from('system_logs').insert({
+        type: 'webhook_attack',
+        message: 'Invalid webhook signature',
+        details: JSON.stringify({ ip, timestamp: new Date().toISOString(), reason: 'invalid_signature', payloadHash })
+      });
+    } catch (dbErr) {
+      console.error('[razorpay-webhook] Failed to log webhook attack to DB:', dbErr);
     }
+    return res.status(401).json({ error: 'Invalid webhook signature.' });
+  }
 
-    const isSignatureValid = verifyRazorpaySignature(rawBody, signature, RAZORPAY_WEBHOOK_SECRET);
-    if (!isSignatureValid) {
-      console.error('SIGNATURE_VERIFICATION_FAILED reason=invalid_signature');
-      await logSystemError('webhook_error', 'Invalid webhook signature', signature);
-      return res.status(401).json({ error: 'Invalid webhook signature.' });
-    }
+  console.log('SIGNATURE_VERIFIED');
 
-    console.log('SIGNATURE_VERIFIED');
-
+  try {
     // 3. Parse JSON event
     let event: any;
     try {
@@ -179,48 +204,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('[ADMIN LOG] Duplicate check passed:', paymentId);
 
-    // 6. Plan Detection
-    const notes = paymentPayload?.notes || paymentLinkPayload?.notes || orderPayload?.notes || {};
-    const desc = (
-      paymentPayload?.description ||
-      paymentLinkPayload?.description ||
-      orderPayload?.description ||
-      ''
-    ).toLowerCase();
-    const planStr = (notes.plan || notes.Plan || '').toLowerCase();
+    // 6. Plan Detection Priority
+    // Priority 1: payment_link_id matching
+    // Priority 2: notes.plan matching
+    // Priority 3: reject
+    let plan: 'pro' | 'mega' | 'test' | null = null;
+
+    const TEST_PAYMENT_LINK_ID = process.env.TEST_PAYMENT_LINK_ID || '';
+    const PRO_PAYMENT_LINK_ID = process.env.PRO_PAYMENT_LINK_ID || '';
+    const MEGA_PAYMENT_LINK_ID = process.env.MEGA_PAYMENT_LINK_ID || '';
+
+    const receivedPaymentLinkId = paymentLinkPayload?.id || paymentPayload?.payment_link_id;
+
+    if (receivedPaymentLinkId) {
+      if (TEST_PAYMENT_LINK_ID && receivedPaymentLinkId === TEST_PAYMENT_LINK_ID) {
+        plan = 'test';
+      } else if (PRO_PAYMENT_LINK_ID && receivedPaymentLinkId === PRO_PAYMENT_LINK_ID) {
+        plan = 'pro';
+      } else if (MEGA_PAYMENT_LINK_ID && receivedPaymentLinkId === MEGA_PAYMENT_LINK_ID) {
+        plan = 'mega';
+      }
+    }
+
+    if (!plan) {
+      const notes = paymentPayload?.notes || paymentLinkPayload?.notes || orderPayload?.notes || {};
+      const planStr = (notes.plan || notes.Plan || '').toLowerCase();
+      if (planStr === 'test') {
+        plan = 'test';
+      } else if (planStr === 'pro') {
+        plan = 'pro';
+      } else if (planStr === 'mega') {
+        plan = 'mega';
+      }
+    }
+
+    if (!plan) {
+      console.error('PLAN_MAPPING_FAILED');
+      console.error(`VALIDATION FAILED reason=plan_mapping_failed details="payment_link_id: ${receivedPaymentLinkId}"`);
+      await logSystemError('webhook_error', 'Plan mapping failed', `payment_link_id: ${receivedPaymentLinkId}`);
+      return res.status(400).json({ error: 'Plan mapping failed. Rejecting request.' });
+    }
+
     const amountPaisa = paymentPayload?.amount ?? paymentLinkPayload?.amount ?? 0;
     const amount = amountPaisa / 100; // Razorpay tracks in paisa
     const currency = paymentPayload?.currency || paymentLinkPayload?.currency || 'INR';
-
-    let plan: 'pro' | 'mega' | 'test' | null = null;
-
-    // A. Check payment link ID mapping first
-    if (paymentLinkId) {
-      if (TEST_PAYMENT_LINK_ID && paymentLinkId === TEST_PAYMENT_LINK_ID) {
-        plan = 'test';
-      } else if (PRO_PAYMENT_LINK_ID && paymentLinkId === PRO_PAYMENT_LINK_ID) {
-        plan = 'pro';
-      } else if (MEGA_PAYMENT_LINK_ID && paymentLinkId === MEGA_PAYMENT_LINK_ID) {
-        plan = 'mega';
-      }
-    }
-
-    // B. Check notes/metadata fallback
-    if (!plan) {
-      if (planStr === 'test' || desc.includes('developer test') || desc.includes('test plan')) {
-        plan = 'test';
-      } else if (planStr === 'mega' || desc.includes('mega')) {
-        plan = 'mega';
-      } else if (planStr === 'pro' || desc.includes('pro')) {
-        plan = 'pro';
-      }
-    }
-
-    if (!plan) {
-      console.error('VALIDATION FAILED reason=undetermined_plan');
-      await logSystemError('webhook_error', 'Undetermined plan from webhook payload');
-      return res.status(400).json({ error: 'Failed to determine plan from payload.' });
-    }
 
     // 7. Upsert User
     const { error: userError } = await supabase
@@ -295,7 +322,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[ADMIN LOG] Database insert: User, License, and Payment saved successfully');
 
     // 12. Email delivery of license key
-    const emailSent = await sendLicenseEmail(email, licenseKey, plan);
+    const emailSent = await sendLicenseEmail(email, licenseKey, plan, expiresAt);
     if (!emailSent) {
       console.warn(`[razorpay-webhook] Failed to send license key email to ${email}. Check Resend configuration.`);
       await logSystemError('email_error', `Failed to send license key email to ${email}`, `License: ${licenseKey}, Plan: ${plan}`);
@@ -321,6 +348,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await logSystemError('webhook_error', 'Internal server exception', err?.message);
     return res.status(500).json({ error: 'Internal processing error.', details: err?.message });
   }
-}
-}
 }

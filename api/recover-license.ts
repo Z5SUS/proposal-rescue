@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { sendLicenseEmail } from './email.js';
+import { sendRecoveryEmail } from './email.js';
+import { getClientIp, isRateLimited } from './rate-limit.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -32,53 +33,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing or invalid required field: email (string).' });
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+
+  // 1. Rate Limiting Check: 5 requests/hour/IP
+  const ip = getClientIp(req);
+  const isLimited = await isRateLimited(ip, 'recover-license', 5);
+  if (isLimited) {
+    console.error(`LICENSE_RECOVERY_FAILED email=${cleanEmail} reason=rate_limited`);
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
+
+  console.log(`LICENSE_RECOVERY_REQUEST email=${cleanEmail}`);
+
   try {
     const supabase = getSupabase();
-    // Query Supabase for the most recent active license matching user_email
-    const { data: license, error } = await supabase
+
+    // 2. Fetch all licenses associated with the email
+    const { data: licenses, error } = await supabase
       .from('licenses')
       .select('license_key, plan, expires_at, status')
-      .eq('user_email', email.trim())
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq('user_email', cleanEmail)
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('[recover-license] Database error:', error);
+      console.error(`LICENSE_RECOVERY_FAILED email=${cleanEmail} reason=db_error`);
       return res.status(500).json({ error: 'Database check failed.' });
     }
 
-    if (!license) {
-      return res.status(404).json({ error: 'No active license found for this email address.' });
+    if (!licenses || licenses.length === 0) {
+      console.warn(`LICENSE_RECOVERY_FAILED email=${cleanEmail} reason=no_licenses_found`);
+      return res.status(404).json({ error: 'No licenses found for this email address.' });
     }
 
-    // Expiry check
-    if (license.expires_at) {
-      const expiry = new Date(license.expires_at);
-      if (Date.now() > expiry.getTime()) {
-        // Automatically mark as expired in DB
-        await supabase
-          .from('licenses')
-          .update({ status: 'expired' })
-          .eq('license_key', license.license_key);
+    const now = Date.now();
+    const updatedLicenses: any[] = [];
 
-        return res.status(404).json({ error: 'No active license found (license has expired).' });
+    // 3. Expiry lifecycle check & DB update
+    for (const license of licenses) {
+      let currentStatus = license.status;
+      if (license.status === 'active' && license.expires_at) {
+        const expiry = new Date(license.expires_at).getTime();
+        if (now > expiry) {
+          currentStatus = 'expired';
+          // Update database in the background/concurrently
+          await supabase
+            .from('licenses')
+            .update({ status: 'expired' })
+            .eq('license_key', license.license_key);
+        }
       }
+      updatedLicenses.push({
+        ...license,
+        status: currentStatus
+      });
     }
 
-    // Email the license key to the customer
-    const emailSent = await sendLicenseEmail(email.trim(), license.license_key, license.plan);
+    // 4. Send recovery email containing the list of licenses
+    const emailSent = await sendRecoveryEmail(cleanEmail, updatedLicenses);
+    if (!emailSent) {
+      console.error(`LICENSE_RECOVERY_FAILED email=${cleanEmail} reason=email_send_failed`);
+      return res.status(500).json({ error: 'Failed to send recovery email.' });
+    }
 
+    console.log(`LICENSE_RECOVERY_SUCCESS email=${cleanEmail}`);
+
+    // 5. Secure response: return success status only, do NOT expose keys in JSON
     return res.status(200).json({
       success: true,
-      emailSent,
-      licenseKey: license.license_key,
-      plan: license.plan,
-      expiresAt: license.expires_at,
+      message: 'Recovery email sent successfully.'
     });
+
   } catch (err: any) {
     console.error('[recover-license] Unexpected error:', err);
+    console.error(`LICENSE_RECOVERY_FAILED email=${cleanEmail} reason=internal_exception`);
     return res.status(500).json({ error: 'Internal server error.', details: err?.message });
   }
 }
